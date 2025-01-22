@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatsApp Message Sender</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+</head>
+
+<body>
+    <div class="topbar">
+        <button id="menu_btn" class="menu-btn">&#9776</button>
+        <div class="title">WhatsApp Message Sender</div>
+        <div id="userEmail" class="user-circle"></div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Sidebar Menu -->
+    <div id="sidebar" class="sidebar">
+        <a id="message_sender_ui_btn" href="#">Message Sender</a>
+        <a id="history_veiwer_ui_btn" href="#">History Viewer</a>
+        <a id="statistics_ui_btn" href="#">Statistics</a>
+        <a id="incoming_messages_ui_btn" href="#">Incoming Messages</a>
+    </div>
+
+    <div class="main-content">
+        <!-- Message Sender Section -->
+        <div id="messageSenderSection" class="container interface">
+            <div class="header">
+                <h2>Select a Template</h2>
+            </div>
+            <div class="form-group">
+                <label for="messageTemplate">Select Message Template:</label>
+                <select id="messageTemplate" class="input-field">
+                    <option value="" disabled selected>Loading templates...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="dueDate">Due Date:</label>
+                <input type="date" id="dueDate" class="input-field" />
+            </div>
+            <div class="form-group">
+                <label for="term">Term (in Tamil):</label>
+                <input type="text" id="term" class="input-field" />
+            </div>
+            <div class="form-group">
+                <label for="useSenderSheet">Use Sender Sheet:</label>
+                <input type="checkbox" id="useSenderSheet" />
+            </div>
+            <div class="button-group">
+                <button id="startProcessBtn" class="primary-btn">Start Process</button>
+                <button id="stopProcessBtn" class="secondary-btn">Stop Process</button>
+            </div>
+            <div id="status" class="status-text"></div>
+            <progress id="progress" value="0" max="100" class="progress-bar"></progress>
+            <div id="logSection" class="log-container">
+                <h3>Message Log</h3>
+                <ul id="messageLog" class="log-list"></ul>
+            </div>
+        </div>
+
+        <!-- Message History Section -->
+        <div id="messageHistorySection" class="container interface" style="display: none">
+            <div class="header">
+                <h2>Message History</h2>
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchHistory" class="input-field" placeholder="Search history..." />
+            </div>
+            <ul id="historyList" class="history-list"></ul>
+        </div>
+
+        <!-- Statistics Section -->
+        <div id="statisticsSection" class="container interface" style="display: none">
+            <div class="header">
+                <h2>Statistics</h2>
+            </div>
+            <div id="statistics" class="statistics-container">
+                <canvas id="statisticsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Incoming Messages Section -->
+        <div id="incomingMessagesSection" class="container interface" style="display: none">
+            <div class="header">
+                <h2>Incoming Messages</h2>
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchIncomingMessages" class="input-field" placeholder="Search incoming messages..." />
+            </div>
+            <ul id="incomingMessagesList" class="incoming-messages-list"></ul>
+        </div>
+
+        <!-- Signed Out Section -->
+        <div id="signedOut" class="container interface" style="display: none">
+            <h2>Access Restricted</h2>
+            <p>You need to sign in to manage student information and records.</p>
+            <button id="signInButton" class="primary-btn">Sign In</button>
+        </div>
+
+        <!-- User Circle Modal -->
+        <div id="userModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>User Options</h2>
+                    <span id="closeModal" style="cursor: pointer; font-size: 20px">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Email:</strong> <span id="modalUserEmail"></span></p>
+                    <p><strong>Name:</strong> <span id="modalUserName"></span></p>
+                    <p><strong>Provider ID:</strong> <span id="modalProviderId"></span></p>
+                    <button id="logoutButton" class="secondary-btn">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js" type="module" defer></script>
+</body>
+
+</html>
