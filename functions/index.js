@@ -5,13 +5,19 @@ const { google } = require('googleapis');
 const { Storage } = require('@google-cloud/storage');
 const cors = require('cors')({ origin: true });
 const { Readable } = require('stream');
+const serviceAccount = require('./whatsapp.json'); // Import the whatsapp.json file
 
-admin.initializeApp();
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
 
 const storage = new Storage();
 const drive = google.drive('v3');
 const db = admin.firestore();
-const VERIFY_TOKEN = "your_verify_token_here"; // Replace with your custom token
+const VERIFY_TOKEN = serviceAccount.verify_token; // Use the token from whatsapp.json
+const ACCESS_TOKEN = serviceAccount.access_token; // Use the access token from whatsapp.json
+const spreadsheetId = serviceAccount.spreadsheet_id; // Use the spreadsheet ID from whatsapp.json
+const folderId = serviceAccount.folder_id; // Use the folder ID from whatsapp.json
 
 // Fetch data from Google Sheets
 exports.fetchGoogleSheetData = functions.https.onRequest((req, res) => {
@@ -63,7 +69,6 @@ exports.sendWhatsappMessageHttp = functions.https.onRequest((req, res) => {
         }
 
         const url = "https://graph.facebook.com/v20.0/159339593939407/messages";
-        const ACCESS_TOKEN = "EAAMslFZBsCKoBOyBhd718hUNP0qQeCBEeZAsh0EQYdLq7w5lr4QNmnEZBf5X2QfMzhpuTaaZB0ObS2ZAQWmiunuIa7GIq1vKYM972t7DZCbgZAlf3OLycpBxggOhth4V35Ft3y4Kea1RUAJiaecgTzHZB1ejIZAdWB140mmv4bVlGbojcWGOXRIvdKl7lsaTGIaWIXUkZB5ZBLnefp2g70O";
 
         // Build parameters array
         const parameters = [
@@ -127,7 +132,7 @@ exports.handleWhatsAppWebhook = functions.https.onRequest((req, res) => {
 
 function sendMessageToGoogleChat(message) {
     // Example URL for Google Chat webhook, replace with actual webhook URL
-    const chatWebhookUrl = "https://chat.googleapis.com/v1/spaces/AAAAdR02OtI/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=7f9-XcVZnJ9xL9P68yiDjtEL4i_VCWqWWDwDCR8dkC4";
+    const chatWebhookUrl = serviceAccount.chat_webhook_url; // Use the webhook URL from whatsapp.json
 
     // Send the message to Google Chat
     const payload = {
@@ -286,11 +291,8 @@ async function handleWebhookEvent(req, res) {
 const sheets = google.sheets("v4");
 
 // Replace these with your credentials and spreadsheet details
-const serviceAccount = require("./whatsapp.json");
-const spreadsheetId = "1HAL8ApMQMZqhH-8vUfQkobG9Ub38IWZ_bW0UrIDgHDA"; // Replace with your Google Sheet ID
 
 async function fetchAndDownloadMedia(mediaId) {
-    const folderId = "1Rhqze76EgITqLW9KVHOKgPty9_9y9M-H"; // Replace with the provided folder ID
     const auth = new google.auth.GoogleAuth({
         keyFile: './whatsapp.json', // Replace with the path to your service account file
         scopes: ['https://www.googleapis.com/auth/drive']
@@ -300,7 +302,7 @@ async function fetchAndDownloadMedia(mediaId) {
 
     const url = `https://graph.facebook.com/v20.0/${mediaId}`;
     const headers = {
-        "Authorization": "Bearer EAAMslFZBsCKoBOyBhd718hUNP0qQeCBEeZAsh0EQYdLq7w5lr4QNmnEZBf5X2QfMzhpuTaaZB0ObS2ZAQWmiunuIa7GIq1vKYM972t7DZCbgZAlf3OLycpBxggOhth4V35Ft3y4Kea1RUAJiaecgTzHZB1ejIZAdWB140mmv4bVlGbojcWGOXRIvdKl7lsaTGIaWIXUkZB5ZBLnefp2g70O"
+        "Authorization": `Bearer ${ACCESS_TOKEN}`
     };
 
     try {
