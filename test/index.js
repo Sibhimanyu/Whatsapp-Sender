@@ -7,9 +7,21 @@ const cors = require('cors')({ origin: true });
 const { Readable } = require('stream');
 const serviceAccount = require('./whatsapp.json'); // Import the whatsapp.json file
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-});
+const firebaseConfig = {
+    apiKey: "AIzaSyAspuXUOSXqDwRHrkow-wyE2HD0UGg79q0",
+    authDomain: "whatsapp-sender-5f564.firebaseapp.com",
+    projectId: "whatsapp-sender-5f564",
+    storageBucket: "whatsapp-sender-5f564.firebasestorage.app",
+    messagingSenderId: "648718768183",
+    appId: "1:648718768183:web:d6a648b579ca8dab8c07b2",
+    measurementId: "G-G4J5VN9GVF",
+};
+
+admin.initializeApp(firebaseConfig);
+
+// admin.initializeApp({
+//     credential: admin.credential.cert(serviceAccount)
+// });
 
 const storage = new Storage();
 const drive = google.drive('v3');
@@ -249,7 +261,7 @@ async function handleWebhookEvent(req, res) {
             if (logsSnapshot.empty) {
                 const errorMsg = "Log entry not found";
                 sendMessageToGoogleChat(errorMsg);
-                return res.status(400).send({ error: errorMsg });
+                return res.status(200).send({ message: "Webhook event handled successfully" });
             }
 
             // Check for duplicate receipts
