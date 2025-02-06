@@ -90,7 +90,7 @@ exports.sendWhatsappMessageHttp = functions.https.onRequest((req, res) => {
         ];
 
         // Add term only if the template is not "hostel_fees_due_tamil" or "total_due_fees_tamil"
-        if (messageTemplate !== "hostel_fees_due_tamil" && messageTemplate !== "total_due_fees_tamil") {
+        if (messageTemplate !== "hostel_fees_due_tamil" && messageTemplate !== "total_due_fees_tamil" && messageTemplate !== "board_exam_due_fees_tamil") {
             parameters.splice(1, 0, { type: "text", text: term });
         }
 
@@ -182,7 +182,6 @@ function handleWebhookVerification(req, res) {
 async function handleWebhookEvent(req, res) {
     try {
         const payload = req.body;
-        sendMessageToGoogleChat(JSON.stringify(payload));
 
         // Log the entire incoming payload to inspect its structure
         console.log("Incoming payload:", JSON.stringify(payload, null, 2));
@@ -196,16 +195,17 @@ async function handleWebhookEvent(req, res) {
             !payload.entry[0].changes[0].value
         ) {
             const errorMsg = "Invalid payload structure: Missing expected fields.";
-            sendMessageToGoogleChat(errorMsg);
             return res.status(400).send({ error: errorMsg });
         }
 
         const change = payload.entry[0].changes[0].value;
 
-        // Handle text messages
+        // Handle text messages or read receipts
         if (change.messages && change.messages.length > 0) {
             const message = change.messages[0];
             const from = message.from;
+            const senderName = "Unknown"; // Replace with actual sender name if available
+            const timeString = new Date().toLocaleString();
 
             if (message.text) {
                 const text = message.text.body;
@@ -220,6 +220,7 @@ async function handleWebhookEvent(req, res) {
                 });
 
                 console.log(`Received text message from ${from}: ${text}`);
+                sendMessageToGoogleChat(formatMessage("text", senderName, message, timeString));
             }
 
             // Handle incoming media (documents, images, audio, etc.)
@@ -240,17 +241,14 @@ async function handleWebhookEvent(req, res) {
                 });
 
                 console.log(`Received ${mediaType} from ${from}: ${mediaUrl}`);
+                sendMessageToGoogleChat(formatMessage("media", senderName, message, timeString, mediaUrl));
             }
-        }
-
-        // Handle read receipts
-        if (change.statuses && change.statuses.length > 0) {
+        } else if (change.statuses && change.statuses.length > 0) {
             const status = change.statuses[0];
             const wamId = status.id;
 
             if (!wamId) {
                 const errorMsg = "Missing wamId in the payload.";
-                sendMessageToGoogleChat(errorMsg);
                 return res.status(400).send({ error: errorMsg });
             }
 
@@ -260,7 +258,11 @@ async function handleWebhookEvent(req, res) {
 
             if (logsSnapshot.empty) {
                 const errorMsg = "Log entry not found";
-                sendMessageToGoogleChat(errorMsg);
+                // Store the payload in a temporary collection
+                await db.collection("temporaryWebhookResponses").add({
+                    payload,
+                    timestamp: new Date().toISOString()
+                });
                 return res.status(200).send({ message: "Webhook event handled successfully" });
             }
 
@@ -283,21 +285,47 @@ async function handleWebhookEvent(req, res) {
                     console.log(`Duplicate read receipt ignored for wamId: ${wamId}`);
                 }
             });
+        } else {
+            // Log the entire response payload if it is not being stored anywhere else
+            await db.collection("webhookResponses").add({
+                payload,
+                timestamp: new Date().toISOString()
+            });
         }
-
-        // Log the entire response payload
-        await db.collection("webhookResponses").add({
-            payload,
-            timestamp: new Date().toISOString()
-        });
 
         res.status(200).send({ message: "Webhook event handled successfully" });
     } catch (error) {
         console.error("Error handling WhatsApp webhook:", error.message);
-        sendMessageToGoogleChat(`Error handling WhatsApp webhook: ${error.message}`);
         res.status(500).send({ error: `An error occurred: ${error.message}` });
     }
 }
+
+// Cloud Function to move entries from temporary collection to the appropriate collection
+exports.moveTemporaryEntries = functions.pubsub.schedule('every 30 minutes').onRun(async (context) => {
+    const tempCollectionRef = db.collection("temporaryWebhookResponses");
+    const tempSnapshot = await tempCollectionRef.get();
+
+    tempSnapshot.forEach(async (doc) => {
+        const payload = doc.data().payload;
+        const wamId = payload.entry[0].changes[0].value.statuses[0].id;
+
+        // Query Firestore to find the document with the matching wamId
+        const logsRef = db.collectionGroup("entries").where("wamId", "==", wamId);
+        const logsSnapshot = await logsRef.get();
+
+        if (!logsSnapshot.empty) {
+            // Move the entry to the appropriate collection
+            logsSnapshot.forEach(async (entryDoc) => {
+                const logsCollectionRef = entryDoc.ref.collection("logs");
+                await logsCollectionRef.add(payload);
+                console.log(`Moved temporary entry for wamId: ${wamId}`);
+            });
+
+            // Delete the entry from the temporary collection
+            await doc.ref.delete();
+        }
+    });
+});
 
 // Fetch data from Google Sheets
 const sheets = google.sheets("v4");
@@ -320,9 +348,6 @@ async function fetchAndDownloadMedia(mediaId) {
     try {
         const response = await axios.get(url, { headers });
         const responseData = response.data;
-
-        // Send the response data to Google Chat for debugging
-        sendMessageToGoogleChat(`Response data for Media ID ${mediaId}: ${JSON.stringify(responseData)}`);
 
         const mediaUrl = responseData.url;
         const mediaType = responseData.mime_type;
@@ -382,34 +407,42 @@ async function fetchAndDownloadMedia(mediaId) {
             } catch (error) {
                 const errorMsg = `Error checking or creating file for Media ID ${mediaId}: ${error.message}`;
                 console.log(errorMsg);
-                sendMessageToGoogleChat(errorMsg);
                 return "Error";
             }
         } else {
             const errorMsg = `No URL or media type found for Media ID ${mediaId}`;
             console.log(errorMsg);
-            sendMessageToGoogleChat(errorMsg);
             return "No URL found";
         }
     } catch (error) {
         if (error.response) {
             const errorMsg = `Error fetching media URL for Media ID ${mediaId}: ${error.message}`;
             console.log(errorMsg);
-            sendMessageToGoogleChat(errorMsg);
-            sendMessageToGoogleChat(`Response data: ${JSON.stringify(error.response.data)}`);
-            sendMessageToGoogleChat(`Response status: ${error.response.status}`);
-            sendMessageToGoogleChat(`Response headers: ${JSON.stringify(error.response.headers)}`);
         } else if (error.request) {
             const errorMsg = `Error fetching media URL for Media ID ${mediaId}: No response received`;
             console.log(errorMsg);
-            sendMessageToGoogleChat(errorMsg);
-            sendMessageToGoogleChat(`Request data: ${JSON.stringify(error.request)}`);
         } else {
             const errorMsg = `Error fetching media URL for Media ID ${mediaId}: ${error.message}`;
             console.log(errorMsg);
-            sendMessageToGoogleChat(errorMsg);
         }
         return "Error";
+    }
+}
+
+function formatMessage(type, senderName, message, timeString, mediaUrl = "") {
+    const replyLink = `<https://script.google.com/a/macros/aurobindovidhyalaya.edu.in/s/AKfycby7-S-z7g8629rjIomUABpTVP3n7PvDrjUSzuwkR3y0bkUcaQSn1fath138MdwUynBM/exec?phoneNumber=${message.from}&wamID=${message.id}|Reply here>`;
+
+    switch (type) {
+        case "reaction":
+            return `*Reaction received* at _${timeString}_.\n*From*: ${senderName} (ID: ${message.from}).\n*Reaction*: ${message.reaction.emoji}.\n---\n${replyLink}`;
+        case "text":
+            return `*Text message received* at _${timeString}_.\n*From*: ${senderName} (ID: ${message.from}).\n*Message*: _"${message.text.body}"_.\n---\n${replyLink}`;
+        case "media":
+            return `*${message.type} received* at _${timeString}_.\n*From*: ${senderName} (ID: ${message.from}).\nView the media here: ${mediaUrl}.\n---\n${replyLink}`;
+        case "unknown":
+            return `*Message of unknown type received* at _${timeString}_.\n*From*: ${senderName} (ID: ${message.from}).\n*Message Type*: ${message.type}.\n---\n${replyLink}`;
+        default:
+            return `*Invalid message type* at _${timeString}_.\n*From*: ${senderName} (ID: ${message.from}).`;
     }
 }
 

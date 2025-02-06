@@ -70,23 +70,24 @@ function closeAllDiv() {
 function signIn() {
     document.getElementById("loadingOverlay").style.display = "block";
     signInWithPopup(auth, provider)
-        .then((result) => {
+        .then(async (result) => {
             const user = result.user;
-            const allowedDomain = "@aurobindovidhyalaya.edu.in";
-            if (user.email.endsWith(allowedDomain)) {
+            const allowedEmails = ["sibhi@aurobindovidhyalaya.edu.in", "anupriyab@aurobindovidhyalaya.edu.in", "sudhad@aurobindovidhyalaya.edu.in"]; // Add allowed emails here
+
+            if (allowedEmails.includes(user.email)) {
                 document.getElementById("signedOut").style.display = "none";
                 document.getElementById("messageSenderSection").style.display = "block";
                 document.getElementById("menu_btn").disabled = false;
                 document.getElementById("commentsByStudents").style.display = "block";
             } else {
-                document.getElementById("commentsByStudents").style.display = "none";
+                closeAllDiv()
+                // document.getElementById("commentsByStudents").style.display = "none";
                 document.getElementById("modalUserEmail").textContent = "";
                 document.getElementById("modalUserName").textContent = "";
                 document.getElementById("modalProviderId").textContent = "";
                 document.getElementById("userEmail").textContent = "";
-                signOut(auth)
-                    .then(() => alert("Access denied. Only users with an @aurobindovidhyalaya.edu.in email address can sign in."))
-                    .catch((error) => console.error("Error during sign-out:", error));
+                await signOut(auth);
+                alert("Access denied. Only users with allowed email addresses can sign in.");
             }
         })
         .catch((error) => {
@@ -133,7 +134,7 @@ async function populateMessageTemplates() {
         const response = await fetch("https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/fetchGoogleSheetData", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ range: "Variables!A2:A7" }),
+            body: JSON.stringify({ range: "Variables!A2:A" }),
         });
 
         if (!response.ok) {
@@ -163,6 +164,7 @@ async function startProcess() {
     const statusElement = document.getElementById("status");
     const progressElement = document.getElementById("progress");
     const logElement = document.getElementById("messageLog");
+    const startProcessBtn = document.getElementById("startProcessBtn");
 
     logElement.innerHTML = "";
     const messageTemplate = document.getElementById("messageTemplate").value.trim();
@@ -178,6 +180,7 @@ async function startProcess() {
 
     statusElement.innerText = "Fetching data...";
     progressElement.value = 0;
+    startProcessBtn.disabled = true; // Disable the button
 
     try {
         const sheetResponse = await fetch("https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/fetchGoogleSheetData", {
@@ -217,7 +220,7 @@ async function startProcess() {
                 try {
                     const requestData = { phoneNumber, studentName, dueFees, messageTemplate, dueDate };
 
-                    if (messageTemplate !== "hostel_fees_due_tamil" && messageTemplate !== "total_due_fess_tamil") {
+                    if (messageTemplate !== "hostel_fees_due_tamil" && messageTemplate !== "total_due_fess_tamil" && messageTemplate !== "board_exam_due_fees_tamil") {
                         requestData.term = term;
                     }
 
@@ -263,6 +266,8 @@ async function startProcess() {
     } catch (error) {
         console.error("Error in process:", error);
         statusElement.innerText = "Error: " + error.message;
+    } finally {
+        startProcessBtn.disabled = false; // Re-enable the button
     }
 }
 
