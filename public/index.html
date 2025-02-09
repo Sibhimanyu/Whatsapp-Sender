@@ -13,6 +13,7 @@
     <div class="topbar">
         <button id="menu_btn" class="menu-btn">&#9776</button>
         <div class="title">WhatsApp Message Sender</div>
+        <button id="darkModeToggle" class="menu-btn">🌙</button>
         <div id="userEmail" class="user-circle"></div>
     </div>
 
@@ -26,6 +27,7 @@
         <a id="history_veiwer_ui_btn" href="#">History Viewer</a>
         <a id="statistics_ui_btn" href="#">Statistics</a>
         <a id="incoming_messages_ui_btn" href="#">Incoming Messages</a>
+        <a id="incoming_documents_ui_btn" href="#">Incoming Documents</a>
     </div>
 
     <div class="main-content">
@@ -91,9 +93,22 @@
                 <h2>Incoming Messages</h2>
             </div>
             <div class="search-container">
-                <input type="text" id="searchIncomingMessages" class="input-field" placeholder="Search incoming messages..." />
+                <input type="text" id="searchIncomingMessages" class="input-field"
+                    placeholder="Search incoming messages..." />
             </div>
             <ul id="incomingMessagesList" class="incoming-messages-list"></ul>
+        </div>
+
+        <!-- Incoming Messages Section -->
+        <div id="incomingDocumentsSection" class="container interface" style="display: none">
+            <div class="header">
+                <h2>Incoming Documents</h2>
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchIncomingMessages" class="input-field"
+                    placeholder="Search incoming messages..." />
+            </div>
+            <ul id="incomingDocumentsList" class="incoming-messages-list"></ul>
         </div>
 
         <!-- Signed Out Section -->
@@ -115,6 +130,19 @@
                     <p><strong>Name:</strong> <span id="modalUserName"></span></p>
                     <p><strong>Provider ID:</strong> <span id="modalProviderId"></span></p>
                     <button id="logoutButton" class="secondary-btn">Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Preview Modal -->
+        <div id="documentPreviewModal" class="document-preview-modal">
+            <div class="document-preview-content">
+                <div class="document-preview-header">
+                    <h2>Document Preview</h2>
+                    <span id="closeDocumentPreview" style="cursor: pointer; font-size: 20px">&times;</span>
+                </div>
+                <div class="document-preview-body">
+                    <iframe id="documentPreviewFrame" style="width: 100%; height: 100%; border: none;"></iframe>
                 </div>
             </div>
         </div>

@@ -1,11 +1,11 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const axios = require('axios');
-const { google } = require('googleapis');
-const { Storage } = require('@google-cloud/storage');
-const cors = require('cors')({ origin: true });
-const { Readable } = require('stream');
-const serviceAccount = require('./whatsapp.json'); // Import the whatsapp.json file
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+const axios = require("axios");
+const { google } = require("googleapis");
+const { Storage } = require("@google-cloud/storage");
+const cors = require("cors")({ origin: true });
+const { Readable } = require("stream");
+const serviceAccount = require("./whatsapp.json"); // Import the whatsapp.json file
 
 const firebaseConfig = {
     apiKey: "AIzaSyAspuXUOSXqDwRHrkow-wyE2HD0UGg79q0",
@@ -24,7 +24,7 @@ admin.initializeApp(firebaseConfig);
 // });
 
 const storage = new Storage();
-const drive = google.drive('v3');
+const drive = google.drive("v3");
 const db = admin.firestore();
 const VERIFY_TOKEN = serviceAccount.verify_token; // Use the token from whatsapp.json
 const ACCESS_TOKEN = serviceAccount.access_token; // Use the access token from whatsapp.json
@@ -37,7 +37,9 @@ exports.fetchGoogleSheetData = functions.https.onRequest((req, res) => {
         const { range } = req.body;
 
         if (!range) {
-            return res.status(400).send({ error: "Missing range parameter in request body." });
+            return res
+                .status(400)
+                .send({ error: "Missing range parameter in request body." });
         }
 
         try {
@@ -61,7 +63,11 @@ exports.fetchGoogleSheetData = functions.https.onRequest((req, res) => {
 
             res.status(200).send(response.data.values);
         } catch (error) {
-            console.error("Error fetching data from Google Sheets:", error.message, error);
+            console.error(
+                "Error fetching data from Google Sheets:",
+                error.message,
+                error
+            );
             res.status(500).send({ error: error.message });
         }
     });
@@ -71,12 +77,27 @@ exports.fetchGoogleSheetData = functions.https.onRequest((req, res) => {
 exports.sendWhatsappMessageHttp = functions.https.onRequest((req, res) => {
     cors(req, res, async () => {
         if (req.method !== "POST") {
-            return res.status(405).send({ error: "Only POST requests are allowed" });
+            return res
+                .status(405)
+                .send({ error: "Only POST requests are allowed" });
         }
 
-        const { phoneNumber, studentName, dueFees, messageTemplate, dueDate, term } = req.body;
+        const {
+            phoneNumber,
+            studentName,
+            dueFees,
+            messageTemplate,
+            dueDate,
+            term,
+        } = req.body;
 
-        if (!phoneNumber || !studentName || !dueFees || !messageTemplate || !dueDate) {
+        if (
+            !phoneNumber ||
+            !studentName ||
+            !dueFees ||
+            !messageTemplate ||
+            !dueDate
+        ) {
             return res.status(400).send({ error: "Missing required fields." });
         }
 
@@ -86,11 +107,15 @@ exports.sendWhatsappMessageHttp = functions.https.onRequest((req, res) => {
         const parameters = [
             { type: "text", text: studentName },
             { type: "text", text: dueFees },
-            { type: "text", text: dueDate }
+            { type: "text", text: dueDate },
         ];
 
         // Add term only if the template is not "hostel_fees_due_tamil" or "total_due_fees_tamil"
-        if (messageTemplate !== "hostel_fees_due_tamil" && messageTemplate !== "total_due_fees_tamil" && messageTemplate !== "board_exam_due_fees_tamil") {
+        if (
+            messageTemplate !== "hostel_fees_due_tamil" &&
+            messageTemplate !== "total_due_fees_tamil" &&
+            messageTemplate !== "board_exam_due_fees_tamil"
+        ) {
             parameters.splice(1, 0, { type: "text", text: term });
         }
 
@@ -102,25 +127,28 @@ exports.sendWhatsappMessageHttp = functions.https.onRequest((req, res) => {
             template: {
                 name: messageTemplate,
                 language: {
-                    code: "ta"
+                    code: "ta",
                 },
                 components: [
                     {
                         type: "body",
-                        parameters: parameters
-                    }
-                ]
-            }
+                        parameters: parameters,
+                    },
+                ],
+            },
         };
 
         try {
             const response = await axios.post(url, payload, {
                 headers: {
                     Authorization: `Bearer ${ACCESS_TOKEN}`,
-                    "Content-Type": "application/json"
-                }
+                    "Content-Type": "application/json",
+                },
             });
-            res.status(200).send({ message: "Message sent successfully", response: response.data });
+            res.status(200).send({
+                message: "Message sent successfully",
+                response: response.data,
+            });
         } catch (error) {
             console.error("Error sending message:", error.message);
             res.status(500).send({ error: error.message });
@@ -135,9 +163,10 @@ exports.handleWhatsAppWebhook = functions.https.onRequest((req, res) => {
             handleWebhookVerification(req, res);
         } else if (req.method === "POST") {
             handleWebhookEvent(req, res);
-
         } else {
-            res.status(405).send({ error: "Method not allowed. Use GET or POST." });
+            res.status(405).send({
+                error: "Method not allowed. Use GET or POST.",
+            });
         }
     });
 });
@@ -148,19 +177,26 @@ function sendMessageToGoogleChat(message) {
 
     // Send the message to Google Chat
     const payload = {
-        text: message
+        text: message,
     };
 
-    axios.post(chatWebhookUrl, payload, {
-        headers: {
-            "Content-Type": "application/json"
-        }
-    })
-        .then(response => {
-            console.log("Message sent to Google Chat successfully:", response.data);
+    axios
+        .post(chatWebhookUrl, payload, {
+            headers: {
+                "Content-Type": "application/json",
+            },
         })
-        .catch(error => {
-            console.error("Error sending message to Google Chat:", error.message);
+        .then((response) => {
+            console.log(
+                "Message sent to Google Chat successfully:",
+                response.data
+            );
+        })
+        .catch((error) => {
+            console.error(
+                "Error sending message to Google Chat:",
+                error.message
+            );
         });
 }
 
@@ -194,7 +230,8 @@ async function handleWebhookEvent(req, res) {
             payload.entry[0].changes.length === 0 ||
             !payload.entry[0].changes[0].value
         ) {
-            const errorMsg = "Invalid payload structure: Missing expected fields.";
+            const errorMsg =
+                "Invalid payload structure: Missing expected fields.";
             return res.status(400).send({ error: errorMsg });
         }
 
@@ -216,17 +253,34 @@ async function handleWebhookEvent(req, res) {
                     text,
                     timestamp: new Date().toISOString(),
                     messageId: message.id,
-                    timestampMs: message.timestamp
+                    timestampMs: message.timestamp,
                 });
 
                 console.log(`Received text message from ${from}: ${text}`);
-                sendMessageToGoogleChat(formatMessage("text", senderName, message, timeString));
+                sendMessageToGoogleChat(
+                    formatMessage("text", senderName, message, timeString)
+                );
             }
 
             // Handle incoming media (documents, images, audio, etc.)
-            if (message.document || message.image || message.audio || message.video) {
-                const mediaId = message.document?.id || message.image?.id || message.audio?.id || message.video?.id;
-                const mediaType = message.document ? "document" : message.image ? "image" : message.audio ? "audio" : "video";
+            if (
+                message.document ||
+                message.image ||
+                message.audio ||
+                message.video
+            ) {
+                const mediaId =
+                    message.document?.id ||
+                    message.image?.id ||
+                    message.audio?.id ||
+                    message.video?.id;
+                const mediaType = message.document
+                    ? "document"
+                    : message.image
+                    ? "image"
+                    : message.audio
+                    ? "audio"
+                    : "video";
                 const mediaUrl = await fetchAndDownloadMedia(mediaId);
 
                 // Log the media message to Firestore with more data
@@ -237,11 +291,19 @@ async function handleWebhookEvent(req, res) {
                     timestamp: new Date().toISOString(),
                     mediaType,
                     messageId: message.id,
-                    timestampMs: message.timestamp
+                    timestampMs: message.timestamp,
                 });
 
                 console.log(`Received ${mediaType} from ${from}: ${mediaUrl}`);
-                sendMessageToGoogleChat(formatMessage("media", senderName, message, timeString, mediaUrl));
+                sendMessageToGoogleChat(
+                    formatMessage(
+                        "media",
+                        senderName,
+                        message,
+                        timeString,
+                        mediaUrl
+                    )
+                );
             }
         } else if (change.statuses && change.statuses.length > 0) {
             const status = change.statuses[0];
@@ -253,7 +315,9 @@ async function handleWebhookEvent(req, res) {
             }
 
             // Query Firestore to find the document with the matching wamId
-            const logsRef = db.collectionGroup("entries").where("wamId", "==", wamId);
+            const logsRef = db
+                .collectionGroup("entries")
+                .where("wamId", "==", wamId);
             const logsSnapshot = await logsRef.get();
 
             if (logsSnapshot.empty) {
@@ -261,9 +325,11 @@ async function handleWebhookEvent(req, res) {
                 // Store the payload in a temporary collection
                 await db.collection("temporaryWebhookResponses").add({
                     payload,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
                 });
-                return res.status(200).send({ message: "Webhook event handled successfully" });
+                return res
+                    .status(200)
+                    .send({ message: "Webhook event handled successfully" });
             }
 
             // Check for duplicate receipts
@@ -282,14 +348,16 @@ async function handleWebhookEvent(req, res) {
                     await logsCollectionRef.add(payload);
                     console.log(`Read receipt logged for wamId: ${wamId}`);
                 } else {
-                    console.log(`Duplicate read receipt ignored for wamId: ${wamId}`);
+                    console.log(
+                        `Duplicate read receipt ignored for wamId: ${wamId}`
+                    );
                 }
             });
         } else {
             // Log the entire response payload if it is not being stored anywhere else
             await db.collection("webhookResponses").add({
                 payload,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
             });
         }
 
@@ -301,31 +369,35 @@ async function handleWebhookEvent(req, res) {
 }
 
 // Cloud Function to move entries from temporary collection to the appropriate collection
-exports.moveTemporaryEntries = functions.pubsub.schedule('every 30 minutes').onRun(async (context) => {
-    const tempCollectionRef = db.collection("temporaryWebhookResponses");
-    const tempSnapshot = await tempCollectionRef.get();
+exports.moveTemporaryEntries = functions.pubsub
+    .schedule("every 30 minutes")
+    .onRun(async (context) => {
+        const tempCollectionRef = db.collection("temporaryWebhookResponses");
+        const tempSnapshot = await tempCollectionRef.get();
 
-    tempSnapshot.forEach(async (doc) => {
-        const payload = doc.data().payload;
-        const wamId = payload.entry[0].changes[0].value.statuses[0].id;
+        tempSnapshot.forEach(async (doc) => {
+            const payload = doc.data().payload;
+            const wamId = payload.entry[0].changes[0].value.statuses[0].id;
 
-        // Query Firestore to find the document with the matching wamId
-        const logsRef = db.collectionGroup("entries").where("wamId", "==", wamId);
-        const logsSnapshot = await logsRef.get();
+            // Query Firestore to find the document with the matching wamId
+            const logsRef = db
+                .collectionGroup("entries")
+                .where("wamId", "==", wamId);
+            const logsSnapshot = await logsRef.get();
 
-        if (!logsSnapshot.empty) {
-            // Move the entry to the appropriate collection
-            logsSnapshot.forEach(async (entryDoc) => {
-                const logsCollectionRef = entryDoc.ref.collection("logs");
-                await logsCollectionRef.add(payload);
-                console.log(`Moved temporary entry for wamId: ${wamId}`);
-            });
+            if (!logsSnapshot.empty) {
+                // Move the entry to the appropriate collection
+                logsSnapshot.forEach(async (entryDoc) => {
+                    const logsCollectionRef = entryDoc.ref.collection("logs");
+                    await logsCollectionRef.add(payload);
+                    console.log(`Moved temporary entry for wamId: ${wamId}`);
+                });
 
-            // Delete the entry from the temporary collection
-            await doc.ref.delete();
-        }
+                // Delete the entry from the temporary collection
+                await doc.ref.delete();
+            }
+        });
     });
-});
 
 // Fetch data from Google Sheets
 const sheets = google.sheets("v4");
@@ -334,15 +406,15 @@ const sheets = google.sheets("v4");
 
 async function fetchAndDownloadMedia(mediaId) {
     const auth = new google.auth.GoogleAuth({
-        keyFile: './whatsapp.json', // Replace with the path to your service account file
-        scopes: ['https://www.googleapis.com/auth/drive']
+        keyFile: "./whatsapp.json", // Replace with the path to your service account file
+        scopes: ["https://www.googleapis.com/auth/drive"],
     });
     const authClient = await auth.getClient();
     google.options({ auth: authClient });
 
     const url = `https://graph.facebook.com/v20.0/${mediaId}`;
     const headers = {
-        "Authorization": `Bearer ${ACCESS_TOKEN}`
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
     };
 
     try {
@@ -368,38 +440,38 @@ async function fetchAndDownloadMedia(mediaId) {
             try {
                 const fileResponse = await drive.files.list({
                     q: `name='${fileName}' and '${folderId}' in parents and trashed=false`,
-                    fields: 'files(id, name)',
-                    spaces: 'drive'
+                    fields: "files(id, name)",
+                    spaces: "drive",
                 });
 
                 if (fileResponse.data.files.length > 0) {
                     const fileId = fileResponse.data.files[0].id;
                     const file = await drive.files.get({
                         fileId: fileId,
-                        fields: 'webViewLink'
+                        fields: "webViewLink",
                     });
                     return file.data.webViewLink; // Return existing URL
                 } else {
                     // Download and save media
                     const downloadResponse = await axios.get(mediaUrl, {
                         headers,
-                        responseType: 'stream'
+                        responseType: "stream",
                     });
 
                     const fileMetadata = {
                         name: fileName,
-                        parents: [folderId]
+                        parents: [folderId],
                     };
 
                     const media = {
                         mimeType: mediaType,
-                        body: Readable.from(downloadResponse.data)
+                        body: Readable.from(downloadResponse.data),
                     };
 
                     const file = await drive.files.create({
                         resource: fileMetadata,
                         media: media,
-                        fields: 'id, webViewLink'
+                        fields: "id, webViewLink",
                     });
 
                     return file.data.webViewLink; // Return new URL
@@ -445,4 +517,3 @@ function formatMessage(type, senderName, message, timeString, mediaUrl = "") {
             return `*Invalid message type* at _${timeString}_.\n*From*: ${senderName} (ID: ${message.from}).`;
     }
 }
-

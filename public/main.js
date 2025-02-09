@@ -1,7 +1,24 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, collection, addDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import {
+    getFunctions,
+    httpsCallable,
+} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
+import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    onAuthStateChanged,
+    signOut,
+} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import {
+    getFirestore,
+    doc,
+    setDoc,
+    collection,
+    addDoc,
+    getDocs,
+    getDoc,
+} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAspuXUOSXqDwRHrkow-wyE2HD0UGg79q0",
@@ -21,6 +38,22 @@ const provider = new GoogleAuthProvider();
 
 let userEmail = "";
 
+function showNotification(message, type = "success") {
+    const notificationOverlay = document.createElement("div");
+    notificationOverlay.className = `notification-overlay ${type}`;
+    notificationOverlay.textContent = message;
+    document.body.appendChild(notificationOverlay);
+
+    setTimeout(() => {
+        notificationOverlay.style.transform = "translateY(-20px)";
+        notificationOverlay.style.opacity = "0";
+    }, 3000);
+
+    setTimeout(() => {
+        document.body.removeChild(notificationOverlay);
+    }, 3500);
+}
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         document.getElementById("messageSenderSection").style.display = "block";
@@ -37,29 +70,39 @@ onAuthStateChanged(auth, async (user) => {
         if (userPhotoURL) {
             userPhotoElement.innerHTML = `<img src="${userPhotoURL}" alt="User Profile" style="width: 50px; height: 50px; border-radius: 50%;"/>`;
         } else {
-            const initials = userName.split(" ").map((n) => n[0]).join("").toUpperCase();
+            const initials = userName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase();
             userPhotoElement.textContent = initials;
         }
 
-        document.getElementById("logoutButton").addEventListener("click", () => {
-            closeAllDiv();
-            document.getElementById("signedOut").style.display = "block";
-            document.getElementById("menu_btn").disabled = true;
-            document.getElementById("modalUserEmail").textContent = "";
-            document.getElementById("modalUserName").textContent = "";
-            document.getElementById("modalProviderId").textContent = "";
-            document.getElementById("userEmail").textContent = "";
-            signOut(auth)
-                .then(() => console.log("User signed out."))
-                .catch((error) => {
-                    console.error("Error during logout:", error);
-                    alert("Failed to log out. Please try again.");
-                });
-        });
+        document
+            .getElementById("logoutButton")
+            .addEventListener("click", () => {
+                closeAllDiv();
+                document.getElementById("signedOut").style.display = "block";
+                document.getElementById("menuBtn").disabled = true;
+                document.getElementById("modalUserEmail").textContent = "";
+                document.getElementById("modalUserName").textContent = "";
+                document.getElementById("modalProviderId").textContent = "";
+                document.getElementById("userEmail").textContent = "";
+                signOut(auth)
+                    .then(() => {
+                        console.log("User signed out.");
+                        showNotification("User signed out successfully.", "success");
+                    })
+                    .catch((error) => {
+                        console.error("Error during logout:", error);
+                        alert("Failed to log out. Please try again.");
+                        showNotification("Failed to log out. Please try again.", "error");
+                    });
+            });
     } else {
         closeAllDiv();
         document.getElementById("signedOut").style.display = "block";
-        document.getElementById("menu_btn").disabled = true;
+        document.getElementById("menuBtn").disabled = true;
     }
 });
 
@@ -72,44 +115,66 @@ function signIn() {
     signInWithPopup(auth, provider)
         .then(async (result) => {
             const user = result.user;
-            const allowedEmails = ["sibhi@aurobindovidhyalaya.edu.in", "anupriyab@aurobindovidhyalaya.edu.in", "sudhad@aurobindovidhyalaya.edu.in"]; // Add allowed emails here
+            const allowedEmails = [
+                "sibhi@aurobindovidhyalaya.edu.in",
+                "anupriyab@aurobindovidhyalaya.edu.in",
+                "sudhad@aurobindovidhyalaya.edu.in",
+            ]; // Add allowed emails here
 
             if (allowedEmails.includes(user.email)) {
                 document.getElementById("signedOut").style.display = "none";
-                document.getElementById("messageSenderSection").style.display = "block";
-                document.getElementById("menu_btn").disabled = false;
-                document.getElementById("commentsByStudents").style.display = "block";
+                document.getElementById("messageSenderSection").style.display =
+                    "block";
+                document.getElementById("menuBtn").disabled = false;
+                document.getElementById("commentsByStudents").style.display =
+                    "block";
             } else {
-                closeAllDiv()
+                closeAllDiv();
                 // document.getElementById("commentsByStudents").style.display = "none";
                 document.getElementById("modalUserEmail").textContent = "";
                 document.getElementById("modalUserName").textContent = "";
                 document.getElementById("modalProviderId").textContent = "";
                 document.getElementById("userEmail").textContent = "";
                 await signOut(auth);
-                alert("Access denied. Only users with allowed email addresses can sign in.");
+                alert(
+                    "Access denied. Only users with allowed email addresses can sign in."
+                );
             }
         })
         .catch((error) => {
             console.error("Error during sign-in:", error);
             switch (error.code) {
                 case "auth/popup-closed-by-user":
-                    alert("The sign-in popup was closed before completing the sign-in process. Please try again.");
+                    alert(
+                        "The sign-in popup was closed before completing the sign-in process. Please try again."
+                    );
                     break;
                 case "auth/popup-blocked":
-                    alert("The sign-in popup was blocked by your browser. Please allow popups for this site and try again.");
+                    alert(
+                        "The sign-in popup was blocked by your browser. Please allow popups for this site and try again."
+                    );
                     break;
                 case "auth/network-request-failed":
-                    alert("Network error occurred during sign-in. Please check your internet connection and try again.");
+                    alert(
+                        "Network error occurred during sign-in. Please check your internet connection and try again."
+                    );
                     break;
                 case "auth/cancelled-popup-request":
-                    alert("A conflicting sign-in popup request was made. Please wait and try again.");
+                    alert(
+                        "A conflicting sign-in popup request was made. Please wait and try again."
+                    );
                     break;
                 default:
-                    alert("An unexpected error occurred. Please try again later.");
+                    alert(
+                        "An unexpected error occurred. Please try again later."
+                    );
             }
         })
-        .finally(() => document.getElementById("loadingOverlay").style.display = "none");
+        .finally(
+            () =>
+                (document.getElementById("loadingOverlay").style.display =
+                    "none")
+        );
 }
 
 async function logHistoryToFirestore(headingData, entryData) {
@@ -118,8 +183,16 @@ async function logHistoryToFirestore(headingData, entryData) {
     const timestampDate = new Date().toLocaleDateString().replaceAll("/", "-");
 
     try {
-        const logDocRef = doc(db, "messageLogs", `${messageTemplate}_${timestampDate}`);
-        await setDoc(logDocRef, { userEmail, messageTemplate, dueDate, timestamp }, { merge: true });
+        const logDocRef = doc(
+            db,
+            "messageLogs",
+            `${messageTemplate}_${timestampDate}`
+        );
+        await setDoc(
+            logDocRef,
+            { userEmail, messageTemplate, dueDate, timestamp },
+            { merge: true }
+        );
         const entriesCollectionRef = collection(logDocRef, "entries");
         await addDoc(entriesCollectionRef, entryData);
         console.log("Log entry added successfully.");
@@ -131,15 +204,22 @@ async function logHistoryToFirestore(headingData, entryData) {
 async function populateMessageTemplates() {
     const templateDropdown = document.getElementById("messageTemplate");
     try {
-        const response = await fetch("https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/fetchGoogleSheetData", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ range: "Variables!A2:A" }),
-        });
+        const response = await fetch(
+            "https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/fetchGoogleSheetData",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ range: "Variables!A2:A" }),
+            }
+        );
 
         if (!response.ok) {
-            console.error(`Failed to fetch templates. HTTP status: ${response.status}`);
-            throw new Error(`Failed to fetch templates. HTTP status: ${response.status}`);
+            console.error(
+                `Failed to fetch templates. HTTP status: ${response.status}`
+            );
+            throw new Error(
+                `Failed to fetch templates. HTTP status: ${response.status}`
+            );
         }
 
         const templates = await response.json();
@@ -147,7 +227,8 @@ async function populateMessageTemplates() {
             throw new Error("No templates found in the sheet.");
         }
 
-        templateDropdown.innerHTML = '<option value="" disabled selected>Select a template</option>';
+        templateDropdown.innerHTML =
+            '<option value="" disabled selected>Select a template</option>';
         templates.forEach((template) => {
             const option = document.createElement("option");
             option.value = template;
@@ -156,7 +237,8 @@ async function populateMessageTemplates() {
         });
     } catch (error) {
         console.error("Error fetching templates:", error);
-        templateDropdown.innerHTML = '<option value="" disabled selected>Error loading templates</option>';
+        templateDropdown.innerHTML =
+            '<option value="" disabled selected>Error loading templates</option>';
     }
 }
 
@@ -167,14 +249,17 @@ async function startProcess() {
     const startProcessBtn = document.getElementById("startProcessBtn");
 
     logElement.innerHTML = "";
-    const messageTemplate = document.getElementById("messageTemplate").value.trim();
+    const messageTemplate = document
+        .getElementById("messageTemplate")
+        .value.trim();
     const dueDate = document.getElementById("dueDate").value;
     const term = document.getElementById("term").value.trim();
     const useSenderSheet = document.getElementById("useSenderSheet").checked;
     const sheetName = useSenderSheet ? "Send" : "Test";
 
     if (!messageTemplate || !dueDate) {
-        statusElement.innerText = "Please enter both the message template and the due date.";
+        statusElement.innerText =
+            "Please enter both the message template and the due date.";
         return;
     }
 
@@ -183,14 +268,20 @@ async function startProcess() {
     startProcessBtn.disabled = true; // Disable the button
 
     try {
-        const sheetResponse = await fetch("https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/fetchGoogleSheetData", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ range: `${sheetName}!A2:Z1000` }),
-        });
+        const sheetResponse = await fetch(
+            "https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/fetchGoogleSheetData",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ range: `${sheetName}!A2:Z1000` }),
+            }
+        );
 
         if (!sheetResponse.ok) {
-            throw new Error("Failed to fetch sheet data. HTTP status: " + sheetResponse.status);
+            throw new Error(
+                "Failed to fetch sheet data. HTTP status: " +
+                    sheetResponse.status
+            );
         }
 
         const sheetData = await sheetResponse.json();
@@ -213,25 +304,42 @@ async function startProcess() {
                 continue;
             }
 
-            const phoneNumbers = [phoneNumber1, phoneNumber2, phoneNumber3].filter(Boolean).map((number) => number.replace(/-/g, ""));
+            const phoneNumbers = [phoneNumber1, phoneNumber2, phoneNumber3]
+                .filter(Boolean)
+                .map((number) => number.replace(/-/g, ""));
             const uniquePhoneNumbers = [...new Set(phoneNumbers)];
 
             for (const phoneNumber of uniquePhoneNumbers) {
                 try {
-                    const requestData = { phoneNumber, studentName, dueFees, messageTemplate, dueDate };
+                    const requestData = {
+                        phoneNumber,
+                        studentName,
+                        dueFees,
+                        messageTemplate,
+                        dueDate,
+                    };
 
-                    if (messageTemplate !== "hostel_fees_due_tamil" && messageTemplate !== "total_due_fess_tamil" && messageTemplate !== "board_exam_due_fees_tamil") {
+                    if (
+                        messageTemplate !== "hostel_fees_due_tamil" &&
+                        messageTemplate !== "total_due_fess_tamil" &&
+                        messageTemplate !== "board_exam_due_fees_tamil"
+                    ) {
                         requestData.term = term;
                     }
 
-                    const response = await fetch("https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/sendWhatsappMessageHttp", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(requestData),
-                    });
+                    const response = await fetch(
+                        "https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/sendWhatsappMessageHttp",
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(requestData),
+                        }
+                    );
 
                     if (!response.ok) {
-                        throw new Error(`Failed to send message to ${phoneNumber}.`);
+                        throw new Error(
+                            `Failed to send message to ${phoneNumber}.`
+                        );
                     }
 
                     const result = await response.json();
@@ -241,15 +349,18 @@ async function startProcess() {
 
                     const wamId = result.response.messages[0].id;
 
-                    await logHistoryToFirestore({ messageTemplate, dueDate }, {
-                        timestamp: new Date().toISOString(),
-                        phoneNumber,
-                        studentName,
-                        status: "success",
-                        result,
-                        dueFees,
-                        wamId,
-                    });
+                    await logHistoryToFirestore(
+                        { messageTemplate, dueDate },
+                        {
+                            timestamp: new Date().toISOString(),
+                            phoneNumber,
+                            studentName,
+                            status: "success",
+                            result,
+                            dueFees,
+                            wamId,
+                        }
+                    );
                 } catch (error) {
                     const logItem = document.createElement("li");
                     logItem.textContent = `Failed to send message to ${phoneNumber}. Error: ${error.message}`;
@@ -263,9 +374,11 @@ async function startProcess() {
         }
 
         statusElement.innerText = "All messages sent successfully!";
+        showNotification("All messages sent successfully.", "success");
     } catch (error) {
         console.error("Error in process:", error);
         statusElement.innerText = "Error: " + error.message;
+        showNotification("Error: " + error.message, "error");
     } finally {
         startProcessBtn.disabled = false; // Re-enable the button
     }
@@ -279,7 +392,8 @@ function stopProcess() {
             document.getElementById("progress").value = 0;
         })
         .catch((error) => {
-            document.getElementById("status").innerText = "Error: " + error.message;
+            document.getElementById("status").innerText =
+                "Error: " + error.message;
         });
 }
 
@@ -297,21 +411,38 @@ async function loadMessageHistory() {
             return;
         }
 
-        logsSnapshot.forEach((doc) => {
-            const data = doc.data();
-            const historyBox = document.createElement("div");
-            historyBox.className = "comment-box";
-            historyBox.innerHTML = `
-                <p class="template-name">Template: <span>${data.messageTemplate}</span></p>
-                <p class="due-date">Due Date: <span>${data.dueDate}</span></p>
-                <p class="timestamp">Timestamp: <span>${new Date(data.timestamp).toLocaleString()}</span></p>
-            `;
-            historyBox.addEventListener("click", () => viewLogDetails(doc.id));
-            historyList.appendChild(historyBox);
-        });
+        const logs = logsSnapshot.docs;
+        const batchSize = 10;
+        let currentIndex = 0;
+
+        function loadEntries() {
+            const entries = logs.slice(currentIndex, currentIndex + batchSize);
+            for (const doc of entries) {
+                const data = doc.data();
+                const historyBox = document.createElement("div");
+                historyBox.className = "comment-box";
+                historyBox.innerHTML = `
+                    <p class="template-name">Template: <span>${data.messageTemplate}</span></p>
+                    <p class="due-date">Due Date: <span>${data.dueDate}</span></p>
+                    <p class="timestamp">Timestamp: <span>${new Date(data.timestamp).toLocaleString()}</span></p>
+                `;
+                historyBox.addEventListener("click", () => viewLogDetails(doc.id));
+                historyList.appendChild(historyBox);
+            }
+
+            currentIndex += batchSize;
+            if (currentIndex < logs.length) {
+                setTimeout(loadEntries, 0); // Load next batch asynchronously
+            } else {
+                document.getElementById("loadingOverlay").style.display = "none";
+            }
+        }
+
+        loadEntries();
     } catch (error) {
         console.error("Error loading history:", error);
         historyList.innerHTML = "<li>Error loading history.</li>";
+        showNotification("Error loading history.", "error");
     }
     document.getElementById("loadingOverlay").style.display = "none";
 }
@@ -338,28 +469,35 @@ async function viewLogDetails(logId) {
         let totalDelivered = 0;
         let totalRead = 0;
 
-        const detailsContainer = document.createElement('div');
-        detailsContainer.className = 'details-container';
+        const detailsContainer = document.createElement("div");
+        detailsContainer.className = "details-container";
 
-        const summaryContainer = document.createElement('div');
-        summaryContainer.className = 'summary-container';
+        const summaryContainer = document.createElement("div");
+        summaryContainer.className = "summary-container";
 
-        const searchContainer = document.createElement('div');
-        searchContainer.className = 'search-container';
+        const searchContainer = document.createElement("div");
+        searchContainer.className = "search-container";
         searchContainer.innerHTML = `
             <input type="text" id="searchLogDetails" class="input-field" placeholder="Search log details..." />
         `;
 
-        const detailsTable = document.createElement('table');
-        detailsTable.className = 'details-table';
+        const detailsTable = document.createElement("table");
+        detailsTable.className = "details-table";
 
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const headers = ['Student Name', 'Phone Number', 'Status', 'Due Fees', 'Timestamp', 'Status Bar'];
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        const headers = [
+            "Student Name",
+            "Phone Number",
+            "Status",
+            "Due Fees",
+            "Timestamp",
+            "Status Bar",
+        ];
         headers.forEach((headerText, index) => {
-            const th = document.createElement('th');
+            const th = document.createElement("th");
             th.innerHTML = `${headerText} <span class="sort-indicator">&#9650;</span>`;
-            th.addEventListener('click', () => {
+            th.addEventListener("click", () => {
                 sortTable(detailsTable, index);
                 toggleSortIndicator(th);
             });
@@ -368,145 +506,178 @@ async function viewLogDetails(logId) {
         thead.appendChild(headerRow);
         detailsTable.appendChild(thead);
 
-        const tbody = document.createElement('tbody');
-        for (const entryDoc of entriesSnapshot.docs) {
-            const entry = entryDoc.data();
-            uniqueStudents.add(entry.studentName);
-            totalDueFees += parseFloat(entry.dueFees);
-
-            const row = document.createElement('tr');
-            const studentNameCell = document.createElement('td');
-            studentNameCell.textContent = entry.studentName;
-            row.appendChild(studentNameCell);
-
-            const phoneNumberCell = document.createElement('td');
-            phoneNumberCell.textContent = entry.phoneNumber;
-            row.appendChild(phoneNumberCell);
-
-            const statusCell = document.createElement('td');
-            statusCell.textContent = entry.status;
-            row.appendChild(statusCell);
-
-            const dueFeesCell = document.createElement('td');
-            dueFeesCell.textContent = entry.dueFees;
-            row.appendChild(dueFeesCell);
-
-            const timestampCell = document.createElement('td');
-            timestampCell.textContent = new Date(entry.timestamp).toLocaleString();
-            row.appendChild(timestampCell);
-
-            const logsRef = collection(entryDoc.ref, "logs");
-            const logsSnapshot = await getDocs(logsRef);
-
-            let read = false;
-            let delivered = false;
-            let sent = false;
-
-            logsSnapshot.forEach(logDoc => {
-                const log = logDoc.data();
-                const status = log.entry[0].changes[0].value.statuses[0].status;
-                if (status === "read") {
-                    read = true;
-                    totalRead += 1;
-                } else if (status === "delivered") {
-                    delivered = true;
-                    totalDelivered += 1;
-                } else if (status === "sent") {
-                    sent = true;
-                    totalSent += 1;
-                }
-            });
-
-            const statusBarCell = document.createElement('td');
-            const statusBar = document.createElement('div');
-            statusBar.className = 'status-bar';
-
-            const sentIndicator = document.createElement('div');
-            sentIndicator.className = 'status-indicator';
-            sentIndicator.style.backgroundColor = sent ? 'green' : 'gray';
-            statusBar.appendChild(sentIndicator);
-
-            const deliveredIndicator = document.createElement('div');
-            deliveredIndicator.className = 'status-indicator';
-            deliveredIndicator.style.backgroundColor = delivered ? 'green' : 'gray';
-            statusBar.appendChild(deliveredIndicator);
-
-            const readIndicator = document.createElement('div');
-            readIndicator.className = 'status-indicator';
-            readIndicator.style.backgroundColor = read ? 'green' : 'gray';
-            statusBar.appendChild(readIndicator);
-
-            statusBarCell.appendChild(statusBar);
-            row.appendChild(statusBarCell);
-
-            tbody.appendChild(row);
-        }
+        const tbody = document.createElement("tbody");
         detailsTable.appendChild(tbody);
-
-        totalNumbers = entriesSnapshot.size;
-
-        const sentPercentage = ((totalSent / totalNumbers) * 100).toFixed(2);
-        const deliveredPercentage = ((totalDelivered / totalNumbers) * 100).toFixed(2);
-        const readPercentage = ((totalRead / totalNumbers) * 100).toFixed(2);
-
-        summaryContainer.innerHTML = `
-            <div class="summary-item">
-                <p><strong>Total Students:</strong> ${uniqueStudents.size}</p>
-            </div>
-            <div class="summary-item">
-                <p><strong>Total Numbers:</strong> ${totalNumbers}</p>
-            </div>
-            <div class="summary-item">
-                <p><strong>Total Due Fees:</strong> ${totalDueFees}</p>
-            </div>
-            <div class="summary-item">
-                <p><strong>Sent:</strong> ${sentPercentage}%</p>
-                <progress value="${sentPercentage}" max="100" class="progress-bar"></progress>
-            </div>
-            <div class="summary-item">
-                <p><strong>Delivered:</strong> ${deliveredPercentage}%</p>
-                <progress value="${deliveredPercentage}" max="100" class="progress-bar"></progress>
-            </div>
-            <div class="summary-item">
-                <p><strong>Read:</strong> ${readPercentage}%</p>
-                <progress value="${readPercentage}" max="100" class="progress-bar"></progress>
-            </div>
-        `;
 
         detailsContainer.appendChild(summaryContainer);
         detailsContainer.appendChild(searchContainer);
         detailsContainer.appendChild(detailsTable);
 
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.style.display = 'block';
+        const modal = document.createElement("div");
+        modal.className = "modal";
+        modal.style.display = "block";
 
-        const modalContent = document.createElement('div');
-        modalContent.className = 'modal-content';
+        const modalContent = document.createElement("div");
+        modalContent.className = "modal-content";
 
-        const modalHeader = document.createElement('div');
-        modalHeader.className = 'modal-header';
+        const modalHeader = document.createElement("div");
+        modalHeader.className = "modal-header";
         modalHeader.innerHTML = `
             <h2>Log Details</h2>
             <span class="close-modal" style="cursor: pointer; font-size: 20px">&times;</span>
         `;
         modalContent.appendChild(modalHeader);
 
-        const modalBody = document.createElement('div');
-        modalBody.className = 'modal-body';
+        const modalBody = document.createElement("div");
+        modalBody.className = "modal-body";
         modalBody.appendChild(detailsContainer);
         modalContent.appendChild(modalBody);
 
         modal.appendChild(modalContent);
         document.body.appendChild(modal);
 
-        document.querySelector('.close-modal').addEventListener('click', () => {
-            modal.style.display = 'none';
+        document.querySelector(".close-modal").addEventListener("click", () => {
+            modal.style.display = "none";
             document.body.removeChild(modal);
         });
 
-        document.getElementById('searchLogDetails').addEventListener('input', () => filterLogDetails(detailsTable));
+        document
+            .getElementById("searchLogDetails")
+            .addEventListener("input", () => filterLogDetails(detailsTable));
 
+        // Load entries incrementally
+        const batchSize = 100;
+        let currentIndex = 0;
+
+        async function loadEntries() {
+            const entries = entriesSnapshot.docs.slice(
+                currentIndex,
+                currentIndex + batchSize
+            );
+            for (const entryDoc of entries) {
+                const entry = entryDoc.data();
+                uniqueStudents.add(entry.studentName);
+                totalDueFees += parseFloat(entry.dueFees);
+
+                const row = document.createElement("tr");
+                const studentNameCell = document.createElement("td");
+                studentNameCell.textContent = entry.studentName;
+                row.appendChild(studentNameCell);
+
+                const phoneNumberCell = document.createElement("td");
+                phoneNumberCell.textContent = entry.phoneNumber;
+                row.appendChild(phoneNumberCell);
+
+                const statusCell = document.createElement("td");
+                statusCell.textContent = entry.status;
+                row.appendChild(statusCell);
+
+                const dueFeesCell = document.createElement("td");
+                dueFeesCell.textContent = entry.dueFees;
+                row.appendChild(dueFeesCell);
+
+                const timestampCell = document.createElement("td");
+                timestampCell.textContent = new Date(
+                    entry.timestamp
+                ).toLocaleString();
+                row.appendChild(timestampCell);
+
+                const logsRef = collection(entryDoc.ref, "logs");
+                const logsSnapshot = await getDocs(logsRef);
+
+                let read = false;
+                let delivered = false;
+                let sent = false;
+
+                logsSnapshot.forEach((logDoc) => {
+                    const log = logDoc.data();
+                    const status =
+                        log.entry[0].changes[0].value.statuses[0].status;
+                    if (status === "read") {
+                        read = true;
+                        totalRead += 1;
+                    } else if (status === "delivered") {
+                        delivered = true;
+                        totalDelivered += 1;
+                    } else if (status === "sent") {
+                        sent = true;
+                        totalSent += 1;
+                    }
+                });
+
+                const statusBarCell = document.createElement("td");
+                const statusBar = document.createElement("div");
+                statusBar.className = "status-bar";
+
+                const sentIndicator = document.createElement("div");
+                sentIndicator.className = "status-indicator";
+                sentIndicator.style.backgroundColor = sent ? "green" : "gray";
+                statusBar.appendChild(sentIndicator);
+
+                const deliveredIndicator = document.createElement("div");
+                deliveredIndicator.className = "status-indicator";
+                deliveredIndicator.style.backgroundColor = delivered
+                    ? "green"
+                    : "gray";
+                statusBar.appendChild(deliveredIndicator);
+
+                const readIndicator = document.createElement("div");
+                readIndicator.className = "status-indicator";
+                readIndicator.style.backgroundColor = read ? "green" : "gray";
+                statusBar.appendChild(readIndicator);
+
+                statusBarCell.appendChild(statusBar);
+                row.appendChild(statusBarCell);
+
+                tbody.appendChild(row);
+            }
+
+            currentIndex += batchSize;
+            if (currentIndex < entriesSnapshot.size) {
+                loadEntries(); // Load next batch immediately
+            } else {
+                totalNumbers = entriesSnapshot.size;
+
+                const sentPercentage = (
+                    (totalSent / totalNumbers) *
+                    100
+                ).toFixed(2);
+                const deliveredPercentage = (
+                    (totalDelivered / totalNumbers) *
+                    100
+                ).toFixed(2);
+                const readPercentage = (
+                    (totalRead / totalNumbers) *
+                    100
+                ).toFixed(2);
+
+                summaryContainer.innerHTML = `
+                    <div class="summary-item">
+                        <p><strong>Total Students:</strong> ${uniqueStudents.size}</p>
+                    </div>
+                    <div class="summary-item">
+                        <p><strong>Total Numbers:</strong> ${totalNumbers}</p>
+                    </div>
+                    <div class="summary-item">
+                        <p><strong>Total Due Fees:</strong> ${totalDueFees}</p>
+                    </div>
+                    <div class="summary-item">
+                        <p><strong>Sent:</strong> ${sentPercentage}%</p>
+                        <progress value="${sentPercentage}" max="100" class="progress-bar"></progress>
+                    </div>
+                    <div class="summary-item">
+                        <p><strong>Delivered:</strong> ${deliveredPercentage}%</p>
+                        <progress value="${deliveredPercentage}" max="100" class="progress-bar"></progress>
+                    </div>
+                    <div class="summary-item">
+                        <p><strong>Read:</strong> ${readPercentage}%</p>
+                        <progress value="${readPercentage}" max="100" class="progress-bar"></progress>
+                    </div>
+                `;
+            }
+        }
+
+        loadEntries();
     } catch (error) {
         console.error("Error viewing log details:", error);
         alert("Error viewing log details.");
@@ -515,7 +686,9 @@ async function viewLogDetails(logId) {
 }
 
 function filterLogDetails(table) {
-    const searchInput = document.getElementById("searchLogDetails").value.toLowerCase();
+    const searchInput = document
+        .getElementById("searchLogDetails")
+        .value.toLowerCase();
     const rows = table.getElementsByTagName("tr");
 
     for (let i = 1; i < rows.length; i++) {
@@ -541,51 +714,53 @@ function sortTable(table, columnIndex) {
 
     const tbody = table.getElementsByTagName("tbody")[0];
     tbody.innerHTML = "";
-    sortedRows.forEach(row => tbody.appendChild(row));
+    sortedRows.forEach((row) => tbody.appendChild(row));
 }
 
 function toggleSortIndicator(header) {
-    const indicator = header.querySelector('.sort-indicator');
-    if (indicator.textContent === '▲') {
-        indicator.textContent = '▼';
+    const indicator = header.querySelector(".sort-indicator");
+    if (indicator.textContent === "▲") {
+        indicator.textContent = "▼";
     } else {
-        indicator.textContent = '▲';
+        indicator.textContent = "▲";
     }
 }
 
 function createPieChart(canvasId, label, data) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
+    const ctx = document.getElementById(canvasId).getContext("2d");
     new Chart(ctx, {
-        type: 'pie',
+        type: "pie",
         data: {
-            labels: data.map(d => d.label),
-            datasets: [{
-                data: data.map(d => d.value),
-                backgroundColor: [
-                    'rgba(75, 192, 192, 0.2)',
-                    'rgba(54, 162, 235, 0.2)',
-                    'rgba(255, 99, 132, 0.2)'
-                ],
-                borderColor: [
-                    'rgba(75, 192, 192, 1)',
-                    'rgba(54, 162, 235, 1)',
-                    'rgba(255, 99, 132, 1)'
-                ],
-                borderWidth: 1
-            }]
+            labels: data.map((d) => d.label),
+            datasets: [
+                {
+                    data: data.map((d) => d.value),
+                    backgroundColor: [
+                        "rgba(75, 192, 192, 0.2)",
+                        "rgba(54, 162, 235, 0.2)",
+                        "rgba(255, 99, 132, 0.2)",
+                    ],
+                    borderColor: [
+                        "rgba(75, 192, 192, 1)",
+                        "rgba(54, 162, 235, 1)",
+                        "rgba(255, 99, 132, 1)",
+                    ],
+                    borderWidth: 1,
+                },
+            ],
         },
         options: {
             responsive: true,
             plugins: {
                 legend: {
-                    position: 'top',
+                    position: "top",
                 },
                 title: {
                     display: true,
-                    text: label
-                }
-            }
-        }
+                    text: label,
+                },
+            },
+        },
     });
 }
 
@@ -594,49 +769,101 @@ function toggleMenu() {
     sidebar.style.width = sidebar.style.width === "250px" ? "0" : "250px";
 }
 
+const cache = {
+    messageHistory: null,
+    statistics: null,
+    incomingMessages: null,
+    incomingDocuments: null,
+};
+
 function toggleView(view) {
-    const messageSenderSection = document.getElementById("messageSenderSection");
-    const messageHistorySection = document.getElementById("messageHistorySection");
+    const messageSenderSection = document.getElementById(
+        "messageSenderSection"
+    );
+    const messageHistorySection = document.getElementById(
+        "messageHistorySection"
+    );
     const statisticsSection = document.getElementById("statisticsSection");
-    const incomingMessagesSection = document.getElementById("incomingMessagesSection");
+    const incomingMessagesSection = document.getElementById(
+        "incomingMessagesSection"
+    );
+    const incomingDocumentsSection = document.getElementById(
+        "incomingDocumentsSection"
+    );
 
     if (view === "sender") {
         messageSenderSection.style.display = "block";
         messageHistorySection.style.display = "none";
         statisticsSection.style.display = "none";
         incomingMessagesSection.style.display = "none";
+        incomingDocumentsSection.style.display = "none";
     } else if (view === "history") {
         messageSenderSection.style.display = "none";
         messageHistorySection.style.display = "block";
         statisticsSection.style.display = "none";
         incomingMessagesSection.style.display = "none";
-        loadMessageHistory();
+        incomingDocumentsSection.style.display = "none";
+        if (!cache.messageHistory) {
+            loadMessageHistory();
+            cache.messageHistory = true;
+        }
     } else if (view === "statistics") {
         messageSenderSection.style.display = "none";
         messageHistorySection.style.display = "none";
         statisticsSection.style.display = "block";
         incomingMessagesSection.style.display = "none";
-        loadStatistics();
+        incomingDocumentsSection.style.display = "none";
+        if (!cache.statistics) {
+            loadStatistics();
+            cache.statistics = true;
+        }
     } else if (view === "incomingMessages") {
         messageSenderSection.style.display = "none";
         messageHistorySection.style.display = "none";
         statisticsSection.style.display = "none";
         incomingMessagesSection.style.display = "block";
+        incomingDocumentsSection.style.display = "none";
+        if (!cache.incomingMessages) {
+            loadIncomingMessages();
+            cache.incomingMessages = true;
+        }
+    } else if (view === "incomingDocuments") {
+        messageSenderSection.style.display = "none";
+        messageHistorySection.style.display = "none";
+        statisticsSection.style.display = "none";
+        incomingMessagesSection.style.display = "none";
+        incomingDocumentsSection.style.display = "block";
+        if (!cache.incomingDocuments) {
+            loadIncomingDocuments();
+            cache.incomingDocuments = true;
+        }
     }
-    toggleMenu()
+    toggleMenu();
     localStorage.setItem("lastView", view);
 }
 
 function filterHistory() {
-    const searchInput = document.getElementById("searchHistory").value.toLowerCase();
+    const searchInput = document
+        .getElementById("searchHistory")
+        .value.toLowerCase();
     const historyItems = document.querySelectorAll("#historyList .comment-box");
 
     historyItems.forEach((item) => {
-        const templateName = item.querySelector(".template-name span").textContent.toLowerCase();
-        const dueDate = item.querySelector(".due-date span").textContent.toLowerCase();
-        const timestamp = item.querySelector(".timestamp span").textContent.toLowerCase();
+        const templateName = item
+            .querySelector(".template-name span")
+            .textContent.toLowerCase();
+        const dueDate = item
+            .querySelector(".due-date span")
+            .textContent.toLowerCase();
+        const timestamp = item
+            .querySelector(".timestamp span")
+            .textContent.toLowerCase();
 
-        if (templateName.includes(searchInput) || dueDate.includes(searchInput) || timestamp.includes(searchInput)) {
+        if (
+            templateName.includes(searchInput) ||
+            dueDate.includes(searchInput) ||
+            timestamp.includes(searchInput)
+        ) {
             item.style.display = "block";
         } else {
             item.style.display = "none";
@@ -655,6 +882,7 @@ async function loadStatistics() {
 
         if (logsSnapshot.empty) {
             statisticsContainer.innerHTML = "<p>No statistics available.</p>";
+            document.getElementById("loadingOverlay").style.display = "none";
             return;
         }
 
@@ -665,80 +893,94 @@ async function loadStatistics() {
         let totalDelivered = 0;
         let totalSent = 0;
 
-        for (const doc of logsSnapshot.docs) {
-            const entriesRef = collection(doc.ref, "entries");
-            const entriesSnapshot = await getDocs(entriesRef);
+        const logs = logsSnapshot.docs;
+        const batchSize = 10;
+        let currentIndex = 0;
 
-            totalMessages += entriesSnapshot.size;
+        function processEntries() {
+            const entries = logs.slice(currentIndex, currentIndex + batchSize);
+            for (const doc of entries) {
+                const entriesRef = collection(doc.ref, "entries");
+                const entriesSnapshot = getDocs(entriesRef);
 
-            for (const entryDoc of entriesSnapshot.docs) {
-                const entry = entryDoc.data();
-                if (entry.status === "success") {
-                    totalSuccess += 1;
-                } else {
-                    totalFailed += 1;
-                }
+                totalMessages += entriesSnapshot.size;
 
-                const logsRef = collection(entryDoc.ref, "logs");
-                const logsSnapshot = await getDocs(logsRef);
+                entriesSnapshot.forEach((entryDoc) => {
+                    const entry = entryDoc.data();
+                    if (entry.status === "success") {
+                        totalSuccess += 1;
+                    } else {
+                        totalFailed += 1;
+                    }
 
-                logsSnapshot.forEach(logDoc => {
-                    const log = logDoc.data();
-                    if (log.entry[0].changes[0].value.statuses[0].status === "read") {
-                        totalReadReceipts += 1;
-                    } else if (log.entry[0].changes[0].value.statuses[0].status === "delivered") {
-                        totalDelivered += 1;
-                    } else if (log.entry[0].changes[0].value.statuses[0].status === "sent") {
-                        totalSent += 1;
+                    const logsRef = collection(entryDoc.ref, "logs");
+                    const logsSnapshot = getDocs(logsRef);
+
+                    logsSnapshot.forEach((logDoc) => {
+                        const log = logDoc.data();
+                        if (log.entry[0].changes[0].value.statuses[0].status === "read") {
+                            totalReadReceipts += 1;
+                        } else if (log.entry[0].changes[0].value.statuses[0].status === "delivered") {
+                            totalDelivered += 1;
+                        } else if (log.entry[0].changes[0].value.statuses[0].status === "sent") {
+                            totalSent += 1;
+                        }
+                    });
+                });
+            }
+
+            currentIndex += batchSize;
+            if (currentIndex < logs.length) {
+                setTimeout(processEntries, 0); // Process next batch asynchronously
+            } else {
+                const ctx = document.getElementById("statisticsChart").getContext("2d");
+                new Chart(ctx, {
+                    type: "bar",
+                    data: {
+                        labels: ["Total Messages", "Successful", "Failed", "Read Receipts", "Delivered", "Sent"],
+                        datasets: [{
+                            label: "Statistics",
+                            data: [totalMessages, totalSuccess, totalFailed, totalReadReceipts, totalDelivered, totalSent],
+                            backgroundColor: [
+                                "rgba(75, 192, 192, 0.2)",
+                                "rgba(54, 162, 235, 0.2)",
+                                "rgba(255, 99, 132, 0.2)",
+                                "rgba(153, 102, 255, 0.2)",
+                                "rgba(255, 206, 86, 0.2)",
+                                "rgba(75, 192, 192, 0.2)"
+                            ],
+                            borderColor: [
+                                "rgba(75, 192, 192, 1)",
+                                "rgba(54, 162, 235, 1)",
+                                "rgba(255, 99, 132, 1)",
+                                "rgba(153, 102, 255, 1)",
+                                "rgba(255, 206, 86, 1)",
+                                "rgba(75, 192, 192, 1)"
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
                     }
                 });
+                document.getElementById("loadingOverlay").style.display = "none";
             }
         }
 
-        const ctx = document.getElementById('statisticsChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Total Messages', 'Successful', 'Failed', 'Read Receipts', 'Delivered', 'Sent'],
-                datasets: [{
-                    label: 'Statistics',
-                    data: [totalMessages, totalSuccess, totalFailed, totalReadReceipts, totalDelivered, totalSent],
-                    backgroundColor: [
-                        'rgba(75, 192, 192, 0.2)',
-                        'rgba(54, 162, 235, 0.2)',
-                        'rgba(255, 99, 132, 0.2)',
-                        'rgba(153, 102, 255, 0.2)',
-                        'rgba(255, 206, 86, 0.2)',
-                        'rgba(75, 192, 192, 0.2)'
-                    ],
-                    borderColor: [
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(153, 102, 255, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(75, 192, 192, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
+        processEntries();
     } catch (error) {
         console.error("Error loading statistics:", error);
         statisticsContainer.innerHTML = "<p>Error loading statistics.</p>";
+        showNotification("Error loading statistics.", "error");
     }
     document.getElementById("loadingOverlay").style.display = "none";
 }
 
-// Load incoming messages
 async function getAuthToken() {
     const user = auth.currentUser;
     if (user) {
@@ -761,8 +1003,19 @@ async function loadIncomingMessages() {
 
         if (textMessagesSnapshot.empty) {
             incomingMessagesList.innerHTML = "<li>No incoming messages found.</li>";
-        } else {
-            textMessagesSnapshot.forEach((doc) => {
+            document.getElementById("loadingOverlay").style.display = "none";
+            return;
+        }
+
+        const messages = textMessagesSnapshot.docs;
+        const batchSize = 1;
+        let currentIndex = 0;
+
+        document.getElementById("loadingOverlay").style.display = "none";
+
+        function loadEntries() {
+            const entries = messages.slice(currentIndex, currentIndex + batchSize);
+            for (const doc of entries) {
                 const data = doc.data();
                 const messageBox = document.createElement("div");
                 messageBox.className = "comment-box";
@@ -772,65 +1025,102 @@ async function loadIncomingMessages() {
                     <p class="comment-text">Message: <span>${data.text}</span></p>
                 `;
                 incomingMessagesList.appendChild(messageBox);
-            });
-        }
+            }
 
-        const documentMessagesRef = collection(db, "documentMessages");
-        const documentMessagesSnapshot = await getDocs(documentMessagesRef);
-
-        if (!documentMessagesSnapshot.empty) {
-            documentMessagesSnapshot.forEach((doc) => {
-                const data = doc.data();
-                const messageBox = document.createElement("div");
-                messageBox.className = "comment-box";
-                messageBox.innerHTML = `
-                    <p class="from-text">From: <span>${data.from}</span></p>
-                    <p class="comment-date">Date: <span>${new Date(data.timestamp).toLocaleString()}</span></p>
-                    <p class="comment-text">Document: <a href="${data.mediaUrl}?auth=${authToken}" target="_blank">View Document</a></p>
-                `;
-                incomingMessagesList.appendChild(messageBox);
-            });
-        }
-
-        const imageMessagesRef = collection(db, "imageMessages");
-        const imageMessagesSnapshot = await getDocs(imageMessagesRef);
-
-        if (!imageMessagesSnapshot.empty) {
-            for (const doc of imageMessagesSnapshot.docs) {
-                const data = doc.data();
-                const response = await fetch(`${data.mediaUrl}?auth=${authToken}`);
-                const blob = await response.blob();
-                const imageUrl = URL.createObjectURL(blob);
-
-                const messageBox = document.createElement("div");
-                messageBox.className = "comment-box";
-                messageBox.innerHTML = `
-                    <p class="from-text">From: <span>${data.from}</span></p>
-                    <p class="comment-date">Date: <span>${new Date(data.timestamp).toLocaleString()}</span></p>
-                    <p class="comment-text">Image:</p>
-                    <img src="${imageUrl}" alt="Image" style="width:100%; height:auto;" />
-                `;
-                incomingMessagesList.appendChild(messageBox);
+            currentIndex += batchSize;
+            if (currentIndex < messages.length) {
+                loadEntries(); // Load next batch asynchronously
             }
         }
+
+        loadEntries();
     } catch (error) {
         console.error("Error loading incoming messages:", error);
         incomingMessagesList.innerHTML = "<li>Error loading incoming messages.</li>";
+        showNotification("Error loading incoming messages.", "error");
     }
     document.getElementById("loadingOverlay").style.display = "none";
 }
 
-// Filter incoming messages
+async function loadIncomingDocuments() {
+    document.getElementById("loadingOverlay").style.display = "block";
+    const incomingDocumentsList = document.getElementById("incomingDocumentsList");
+    incomingDocumentsList.innerHTML = "";
+
+    try {
+        const authToken = await getAuthToken();
+
+        const documentMessagesRef = collection(db, "documentMessages");
+        const documentMessagesSnapshot = await getDocs(documentMessagesRef);
+
+        if (documentMessagesSnapshot.empty) {
+            incomingDocumentsList.innerHTML = "<li>No incoming documents found.</li>";
+            document.getElementById("loadingOverlay").style.display = "none";
+            return;
+        }
+
+        const documents = documentMessagesSnapshot.docs;
+        const batchSize = 10;
+        let currentIndex = 0;
+
+        function loadEntries() {
+            const entries = documents.slice(currentIndex, currentIndex + batchSize);
+            for (const doc of entries) {
+                const data = doc.data();
+                const fileId = data.mediaUrl.match(/[-\w]{25,}/)[0];
+                const previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+                const messageBox = document.createElement("div");
+                messageBox.className = "comment-box";
+                messageBox.innerHTML = `
+                    <p class="from-text">From: <span>${data.from}</span></p>
+                    <p class="comment-date">Date: <span>${new Date(data.timestamp).toLocaleString()}</span></p>
+                    <p class="comment-text">Document: <a href="${previewUrl}" target="_blank">View Document</a></p>
+                    <iframe src="${previewUrl}" style="width:100%; height:400px;" frameborder="0"></iframe>
+                `;
+                incomingDocumentsList.appendChild(messageBox);
+            }
+
+            currentIndex += batchSize;
+            if (currentIndex < documents.length) {
+                setTimeout(loadEntries, 0); // Load next batch asynchronously
+            } else {
+                document.getElementById("loadingOverlay").style.display = "none";
+            }
+        }
+
+        loadEntries();
+    } catch (error) {
+        console.error("Error loading incoming documents:", error);
+        incomingDocumentsList.innerHTML = "<li>Error loading incoming documents.</li>";
+        showNotification("Error loading incoming documents.", "error");
+    }
+    document.getElementById("loadingOverlay").style.display = "none";
+}
+
 function filterIncomingMessages() {
-    const searchInput = document.getElementById("searchIncomingMessages").value.toLowerCase();
-    const messageItems = document.querySelectorAll("#incomingMessagesList .comment-box");
+    const searchInput = document
+        .getElementById("searchIncomingMessages")
+        .value.toLowerCase();
+    const messageItems = document.querySelectorAll(
+        "#incomingMessagesList .comment-box"
+    );
 
     messageItems.forEach((item) => {
-        const fromText = item.querySelector(".from-text span").textContent.toLowerCase();
-        const commentDate = item.querySelector(".comment-date span").textContent.toLowerCase();
-        const commentText = item.querySelector(".comment-text span").textContent.toLowerCase();
+        const fromText = item
+            .querySelector(".from-text span")
+            .textContent.toLowerCase();
+        const commentDate = item
+            .querySelector(".comment-date span")
+            .textContent.toLowerCase();
+        const commentText = item
+            .querySelector(".comment-text span")
+            .textContent.toLowerCase();
 
-        if (fromText.includes(searchInput) || commentDate.includes(searchInput) || commentText.includes(searchInput)) {
+        if (
+            fromText.includes(searchInput) ||
+            commentDate.includes(searchInput) ||
+            commentText.includes(searchInput)
+        ) {
             item.style.display = "block";
         } else {
             item.style.display = "none";
@@ -838,20 +1128,67 @@ function filterIncomingMessages() {
     });
 }
 
-document.getElementById("startProcessBtn").addEventListener("click", startProcess);
-document.getElementById("stopProcessBtn").addEventListener("click", stopProcess);
-document.getElementById("message_sender_ui_btn").addEventListener("click", () => toggleView("sender"));
-document.getElementById("history_veiwer_ui_btn").addEventListener("click", () => toggleView("history"));
-document.getElementById("statistics_ui_btn").addEventListener("click", () => toggleView("statistics"));
-document.getElementById("incoming_messages_ui_btn").addEventListener("click", () => {
-    toggleView("incomingMessages");
-    loadIncomingMessages();
+function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+    const isDarkMode = document.body.classList.contains("dark-mode");
+    localStorage.setItem("darkMode", isDarkMode);
+}
+
+// Load dark mode preference on page load
+document.addEventListener("DOMContentLoaded", () => {
+    const darkMode = localStorage.getItem("darkMode") === "true";
+    if (darkMode) {
+        document.body.classList.add("dark-mode");
+    }
 });
-document.querySelector(".user-circle").addEventListener("click", () => document.getElementById("userModal").style.display = "block");
+
+document
+    .getElementById("startProcessBtn")
+    .addEventListener("click", startProcess);
+document
+    .getElementById("stopProcessBtn")
+    .addEventListener("click", stopProcess);
+document
+    .getElementById("message_sender_ui_btn")
+    .addEventListener("click", () => toggleView("sender"));
+document
+    .getElementById("history_veiwer_ui_btn")
+    .addEventListener("click", () => toggleView("history"));
+document
+    .getElementById("statistics_ui_btn")
+    .addEventListener("click", () => toggleView("statistics"));
+document
+    .getElementById("incoming_messages_ui_btn")
+    .addEventListener("click", () => {
+        toggleView("incomingMessages");
+        loadIncomingMessages();
+    });
+document
+    .getElementById("incoming_documents_ui_btn")
+    .addEventListener("click", () => {
+        toggleView("incomingDocuments");
+        loadIncomingDocuments();
+    });
+document
+    .querySelector(".user-circle")
+    .addEventListener(
+        "click",
+        () => (document.getElementById("userModal").style.display = "block")
+    );
 document.getElementById("signInButton").addEventListener("click", signIn);
 document.getElementById("menu_btn").addEventListener("click", toggleMenu);
-document.getElementById("closeModal").addEventListener("click", () => document.getElementById("userModal").style.display = "none");
-document.getElementById("searchHistory").addEventListener("input", filterHistory);
-document.getElementById("searchIncomingMessages").addEventListener("input", filterIncomingMessages);
+document
+    .getElementById("closeModal")
+    .addEventListener(
+        "click",
+        () => (document.getElementById("userModal").style.display = "none")
+    );
+document
+    .getElementById("searchHistory")
+    .addEventListener("input", filterHistory);
+document
+    .getElementById("searchIncomingMessages")
+    .addEventListener("input", filterIncomingMessages);
+document.getElementById("darkModeToggle").addEventListener("click", toggleDarkMode);
 
 populateMessageTemplates();
