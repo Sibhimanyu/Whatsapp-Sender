@@ -447,6 +447,31 @@ async function loadMessageHistory() {
     document.getElementById("loadingOverlay").style.display = "none";
 }
 
+function exportLogsToCSV(logs) {
+    const csvRows = [];
+    const headers = ["Timestamp", "Student Name", "Phone Number", "Status", "Due Fees"];
+    csvRows.push(headers.join(","));
+
+    logs.forEach(log => {
+        const row = [
+            new Date(log.timestamp).toLocaleString(),
+            log.studentName,
+            log.phoneNumber,
+            log.status,
+            log.dueFees
+        ];
+        csvRows.push(row.join(","));
+    });
+
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.setAttribute("href", url);
+    a.setAttribute("download", "message_logs.csv");
+    a.click();
+}
+
 async function viewLogDetails(logId) {
     document.getElementById("loadingOverlay").style.display = "block";
     try {
@@ -468,6 +493,7 @@ async function viewLogDetails(logId) {
         let totalSent = 0;
         let totalDelivered = 0;
         let totalRead = 0;
+        const logs = [];
 
         const detailsContainer = document.createElement("div");
         detailsContainer.className = "details-container";
@@ -513,6 +539,12 @@ async function viewLogDetails(logId) {
         detailsContainer.appendChild(searchContainer);
         detailsContainer.appendChild(detailsTable);
 
+        const exportButton = document.createElement("button");
+        exportButton.textContent = "Export to CSV";
+        exportButton.className = "primary-btn";
+        exportButton.addEventListener("click", () => exportLogsToCSV(logs));
+        detailsContainer.appendChild(exportButton);
+
         const modal = document.createElement("div");
         modal.className = "modal";
         modal.style.display = "block";
@@ -546,7 +578,7 @@ async function viewLogDetails(logId) {
             .addEventListener("input", () => filterLogDetails(detailsTable));
 
         // Load entries incrementally
-        const batchSize = 100;
+        const batchSize = 1;
         let currentIndex = 0;
 
         async function loadEntries() {
@@ -558,6 +590,7 @@ async function viewLogDetails(logId) {
                 const entry = entryDoc.data();
                 uniqueStudents.add(entry.studentName);
                 totalDueFees += parseFloat(entry.dueFees);
+                logs.push(entry);
 
                 const row = document.createElement("tr");
                 const studentNameCell = document.createElement("td");
@@ -990,6 +1023,44 @@ async function getAuthToken() {
     }
 }
 
+async function addNoteToMessage(messageId, noteText, author) {
+    try {
+        const messageRef = doc(db, "textMessages", messageId);
+        const notesCollectionRef = collection(messageRef, "notes");
+        await addDoc(notesCollectionRef, {
+            noteText,
+            author,
+            timestamp: new Date().toISOString(),
+        });
+        console.log("Note added successfully.");
+    } catch (error) {
+        console.error("Error adding note:", error);
+    }
+}
+
+async function loadNotesForMessage(messageId, notesContainer) {
+    try {
+        const messageRef = doc(db, "textMessages", messageId);
+        const notesCollectionRef = collection(messageRef, "notes");
+        const notesSnapshot = await getDocs(notesCollectionRef);
+
+        notesContainer.innerHTML = "";
+        notesSnapshot.forEach((noteDoc) => {
+            const noteData = noteDoc.data();
+            const noteElement = document.createElement("div");
+            noteElement.className = "note-container";
+            noteElement.innerHTML = `
+                <h4>Note by ${noteData.author}:</h4>
+                <p>${noteData.noteText}</p>
+                <p><small>${new Date(noteData.timestamp).toLocaleString()}</small></p>
+            `;
+            notesContainer.appendChild(noteElement);
+        });
+    } catch (error) {
+        console.error("Error loading notes:", error);
+    }
+}
+
 async function loadIncomingMessages() {
     document.getElementById("loadingOverlay").style.display = "block";
     const incomingMessagesList = document.getElementById("incomingMessagesList");
@@ -1007,29 +1078,52 @@ async function loadIncomingMessages() {
             return;
         }
 
-        const messages = textMessagesSnapshot.docs;
-        const batchSize = 1;
-        let currentIndex = 0;
+        const lastMessageTimestamp = new Date(await getLastMessageTimestamp()).getTime();
+        console.log("Last Message Timestamp (ms):", lastMessageTimestamp);
+
+        const messages = textMessagesSnapshot.docs.sort((a, b) => 
+            new Date(b.data().timestamp).getTime() - new Date(a.data().timestamp).getTime()
+        );
 
         document.getElementById("loadingOverlay").style.display = "none";
+
+        const batchSize = 1;
+        let currentIndex = 0;
 
         function loadEntries() {
             const entries = messages.slice(currentIndex, currentIndex + batchSize);
             for (const doc of entries) {
                 const data = doc.data();
+                const messageTimestamp = new Date(data.timestamp).getTime();
+                const isRecent = messageTimestamp > lastMessageTimestamp;
+
+                console.log(`Message Timestamp (ms): ${messageTimestamp}, Recent: ${isRecent}`);
+
                 const messageBox = document.createElement("div");
-                messageBox.className = "comment-box";
+                messageBox.className = `comment-box ${isRecent ? 'recent' : ''}`;
                 messageBox.innerHTML = `
                     <p class="from-text">From: <span>${data.from}</span></p>
-                    <p class="comment-date">Date: <span>${new Date(data.timestamp).toLocaleString()}</span></p>
+                    <p class="comment-date">Date: <span>${new Date(messageTimestamp).toLocaleString()}</span></p>
                     <p class="comment-text">Message: <span>${data.text}</span></p>
+                    <div class="notes-container"></div>
                 `;
+                const notesContainer = messageBox.querySelector(".notes-container");
+                loadNotesForMessage(doc.id, notesContainer);
+
+                messageBox.addEventListener("click", async () => {
+                    const noteText = prompt("Enter your note:");
+                    if (noteText) {
+                        await addNoteToMessage(doc.id, noteText, userEmail);
+                        loadNotesForMessage(doc.id, notesContainer);
+                    }
+                });
+
                 incomingMessagesList.appendChild(messageBox);
             }
 
             currentIndex += batchSize;
             if (currentIndex < messages.length) {
-                loadEntries(); // Load next batch asynchronously
+                loadEntries();
             }
         }
 
@@ -1038,6 +1132,46 @@ async function loadIncomingMessages() {
         console.error("Error loading incoming messages:", error);
         incomingMessagesList.innerHTML = "<li>Error loading incoming messages.</li>";
         showNotification("Error loading incoming messages.", "error");
+    }
+    document.getElementById("loadingOverlay").style.display = "none";
+}
+
+async function addNoteToDocument(documentId, noteText, author) {
+    try {
+        const documentRef = doc(db, "documentMessages", documentId);
+        const notesCollectionRef = collection(documentRef, "notes");
+        await addDoc(notesCollectionRef, {
+            noteText,
+            author,
+            timestamp: new Date().toISOString(),
+        });
+        console.log("Note added successfully.");
+    } catch (error) {
+        console.error("Error adding note:", error);
+    }
+}
+
+async function loadNotesForDocument(documentId, notesContainer) {
+    document.getElementById("loadingOverlay").style.display = "block";
+    try {
+        const documentRef = doc(db, "documentMessages", documentId);
+        const notesCollectionRef = collection(documentRef, "notes");
+        const notesSnapshot = await getDocs(notesCollectionRef);
+
+        notesContainer.innerHTML = "";
+        notesSnapshot.forEach((noteDoc) => {
+            const noteData = noteDoc.data();
+            const noteElement = document.createElement("div");
+            noteElement.className = "note-container";
+            noteElement.innerHTML = `
+                <h4>Note by ${noteData.author}:</h4>
+                <p>${noteData.noteText}</p>
+                <p><small>${new Date(noteData.timestamp).toLocaleString()}</small></p>
+            `;
+            notesContainer.appendChild(noteElement);
+        });
+    } catch (error) {
+        console.error("Error loading notes:", error);
     }
     document.getElementById("loadingOverlay").style.display = "none";
 }
@@ -1059,32 +1193,57 @@ async function loadIncomingDocuments() {
             return;
         }
 
-        const documents = documentMessagesSnapshot.docs;
-        const batchSize = 10;
+        const lastMessageTimestamp = new Date(await getLastMessageTimestamp()).getTime();
+        console.log("Last Message Timestamp (ms):", lastMessageTimestamp);
+
+        const documents = documentMessagesSnapshot.docs.sort((a, b) => 
+            new Date(b.data().timestamp).getTime() - new Date(a.data().timestamp).getTime()
+        );
+
+        document.getElementById("loadingOverlay").style.display = "none";
+
+        const batchSize = 1;
         let currentIndex = 0;
 
         function loadEntries() {
             const entries = documents.slice(currentIndex, currentIndex + batchSize);
             for (const doc of entries) {
                 const data = doc.data();
-                const fileId = data.mediaUrl.match(/[-\w]{25,}/)[0];
-                const previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+                const messageTimestamp = new Date(data.timestamp).getTime();
+                const isRecent = messageTimestamp > lastMessageTimestamp;
+
+                console.log(`Message Timestamp (ms): ${messageTimestamp}, Recent: ${isRecent}`);
+
+                const fileIdMatch = data.mediaUrl.match(/[-\w]{25,}/);
+                const fileId = fileIdMatch ? fileIdMatch[0] : null;
+                const previewUrl = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : "#";
+
                 const messageBox = document.createElement("div");
-                messageBox.className = "comment-box";
+                messageBox.className = `comment-box ${isRecent ? 'recent' : ''}`;
                 messageBox.innerHTML = `
                     <p class="from-text">From: <span>${data.from}</span></p>
-                    <p class="comment-date">Date: <span>${new Date(data.timestamp).toLocaleString()}</span></p>
-                    <p class="comment-text">Document: <a href="${previewUrl}" target="_blank">View Document</a></p>
-                    <iframe src="${previewUrl}" style="width:100%; height:400px;" frameborder="0"></iframe>
+                    <p class="comment-date">Date: <span>${new Date(messageTimestamp).toLocaleString()}</span></p>
+                    <p class="comment-text">Document: ${fileId ? `<a href="${previewUrl}" target="_blank">View Document</a>` : "Invalid Document URL"}</p>
+                    ${fileId ? `<iframe src="${previewUrl}" style="width:100%; height:400px;" frameborder="0"></iframe>` : ""}
+                    <div class="notes-container"></div>
                 `;
+                const notesContainer = messageBox.querySelector(".notes-container");
+                loadNotesForDocument(doc.id, notesContainer);
+
+                messageBox.addEventListener("click", async () => {
+                    const noteText = prompt("Enter your note:");
+                    if (noteText) {
+                        await addNoteToDocument(doc.id, noteText, userEmail);
+                        loadNotesForDocument(doc.id, notesContainer);
+                    }
+                });
+
                 incomingDocumentsList.appendChild(messageBox);
             }
 
             currentIndex += batchSize;
             if (currentIndex < documents.length) {
-                setTimeout(loadEntries, 0); // Load next batch asynchronously
-            } else {
-                document.getElementById("loadingOverlay").style.display = "none";
+                loadEntries();
             }
         }
 
@@ -1095,6 +1254,17 @@ async function loadIncomingDocuments() {
         showNotification("Error loading incoming documents.", "error");
     }
     document.getElementById("loadingOverlay").style.display = "none";
+}
+
+
+async function getLastMessageTimestamp() {
+    const logsRef = collection(db, "messageLogs");
+    const logsSnapshot = await getDocs(logsRef);
+    if (logsSnapshot.empty) {
+        return 0;
+    }
+    const lastLog = logsSnapshot.docs.sort((a, b) => b.data().timestamp - a.data().timestamp)[0];
+    return lastLog.data().timestamp;
 }
 
 function filterIncomingMessages() {
@@ -1142,6 +1312,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+function exportHistoryToCSV() {
+    const historyItems = document.querySelectorAll("#historyList .comment-box");
+    const csvRows = [];
+    const headers = ["Template", "Due Date", "Timestamp"];
+    csvRows.push(headers.join(","));
+
+    historyItems.forEach(item => {
+        const templateName = item.querySelector(".template-name span").textContent;
+        const dueDate = item.querySelector(".due-date span").textContent;
+        const timestamp = item.querySelector(".timestamp span").textContent;
+        const row = [templateName, dueDate, timestamp];
+        csvRows.push(row.join(","));
+    });
+
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.setAttribute("href", url);
+    a.setAttribute("download", "message_history.csv");
+    a.click();
+}
+
 document
     .getElementById("startProcessBtn")
     .addEventListener("click", startProcess);
@@ -1161,13 +1354,13 @@ document
     .getElementById("incoming_messages_ui_btn")
     .addEventListener("click", () => {
         toggleView("incomingMessages");
-        loadIncomingMessages();
+        // loadIncomingMessages();
     });
 document
     .getElementById("incoming_documents_ui_btn")
     .addEventListener("click", () => {
         toggleView("incomingDocuments");
-        loadIncomingDocuments();
+        // loadIncomingDocuments();
     });
 document
     .querySelector(".user-circle")
@@ -1190,5 +1383,6 @@ document
     .getElementById("searchIncomingMessages")
     .addEventListener("input", filterIncomingMessages);
 document.getElementById("darkModeToggle").addEventListener("click", toggleDarkMode);
+document.getElementById("exportToCSVBtn").addEventListener("click", exportHistoryToCSV);
 
 populateMessageTemplates();
