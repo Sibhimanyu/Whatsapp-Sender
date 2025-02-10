@@ -38,25 +38,20 @@ const provider = new GoogleAuthProvider();
 
 let userEmail = "";
 
-function showNotification(message, type = "success") {
-    const notificationOverlay = document.createElement("div");
-    notificationOverlay.className = `notification-overlay ${type}`;
-    notificationOverlay.textContent = message;
-    document.body.appendChild(notificationOverlay);
+function updateUI(elements, displayStyle) {
+    elements.forEach(element => {
+        document.getElementById(element).style.display = displayStyle;
+    });
+}
 
-    setTimeout(() => {
-        notificationOverlay.style.transform = "translateY(-20px)";
-        notificationOverlay.style.opacity = "0";
-    }, 3000);
-
-    setTimeout(() => {
-        document.body.removeChild(notificationOverlay);
-    }, 3500);
+function handleError(error, message) {
+    console.error(message, error);
+    alert(message);
 }
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        document.getElementById("messageSenderSection").style.display = "block";
+        updateUI(["messageSenderSection"], "block");
         userEmail = user.email;
         const userName = user.displayName || "No name available";
         const userPhotoURL = user.photoURL;
@@ -81,37 +76,27 @@ onAuthStateChanged(auth, async (user) => {
         document
             .getElementById("logoutButton")
             .addEventListener("click", () => {
-                closeAllDiv();
-                document.getElementById("signedOut").style.display = "block";
+                updateUI(["messageSenderSection"], "none");
+                updateUI(["signedOut"], "block");
                 document.getElementById("menuBtn").disabled = true;
-                document.getElementById("modalUserEmail").textContent = "";
-                document.getElementById("modalUserName").textContent = "";
-                document.getElementById("modalProviderId").textContent = "";
-                document.getElementById("userEmail").textContent = "";
+                ["modalUserEmail", "modalUserName", "modalProviderId", "userEmail"].forEach(id => document.getElementById(id).textContent = "");
                 signOut(auth)
                     .then(() => {
                         console.log("User signed out.");
-                        showNotification("User signed out successfully.", "success");
                     })
                     .catch((error) => {
-                        console.error("Error during logout:", error);
-                        alert("Failed to log out. Please try again.");
-                        showNotification("Failed to log out. Please try again.", "error");
+                        handleError(error, "Failed to log out. Please try again.");
                     });
             });
     } else {
-        closeAllDiv();
-        document.getElementById("signedOut").style.display = "block";
+        updateUI(["messageSenderSection"], "none");
+        updateUI(["signedOut"], "block");
         document.getElementById("menuBtn").disabled = true;
     }
 });
 
-function closeAllDiv() {
-    document.getElementById("messageSenderSection").style.display = "none";
-}
-
 function signIn() {
-    document.getElementById("loadingOverlay").style.display = "block";
+    updateUI(["loadingOverlay"], "block");
     signInWithPopup(auth, provider)
         .then(async (result) => {
             const user = result.user;
@@ -119,22 +104,16 @@ function signIn() {
                 "sibhi@aurobindovidhyalaya.edu.in",
                 "anupriyab@aurobindovidhyalaya.edu.in",
                 "sudhad@aurobindovidhyalaya.edu.in",
-            ]; // Add allowed emails here
+                "gv@aurobindovidhyalaya.edu.in"
+            ];
 
             if (allowedEmails.includes(user.email)) {
-                document.getElementById("signedOut").style.display = "none";
-                document.getElementById("messageSenderSection").style.display =
-                    "block";
+                updateUI(["signedOut"], "none");
+                updateUI(["messageSenderSection", "commentsByStudents"], "block");
                 document.getElementById("menuBtn").disabled = false;
-                document.getElementById("commentsByStudents").style.display =
-                    "block";
             } else {
-                closeAllDiv();
-                // document.getElementById("commentsByStudents").style.display = "none";
-                document.getElementById("modalUserEmail").textContent = "";
-                document.getElementById("modalUserName").textContent = "";
-                document.getElementById("modalProviderId").textContent = "";
-                document.getElementById("userEmail").textContent = "";
+                updateUI(["messageSenderSection"], "none");
+                ["modalUserEmail", "modalUserName", "modalProviderId", "userEmail"].forEach(id => document.getElementById(id).textContent = "");
                 await signOut(auth);
                 alert(
                     "Access denied. Only users with allowed email addresses can sign in."
@@ -143,37 +122,18 @@ function signIn() {
         })
         .catch((error) => {
             console.error("Error during sign-in:", error);
-            switch (error.code) {
-                case "auth/popup-closed-by-user":
-                    alert(
-                        "The sign-in popup was closed before completing the sign-in process. Please try again."
-                    );
-                    break;
-                case "auth/popup-blocked":
-                    alert(
-                        "The sign-in popup was blocked by your browser. Please allow popups for this site and try again."
-                    );
-                    break;
-                case "auth/network-request-failed":
-                    alert(
-                        "Network error occurred during sign-in. Please check your internet connection and try again."
-                    );
-                    break;
-                case "auth/cancelled-popup-request":
-                    alert(
-                        "A conflicting sign-in popup request was made. Please wait and try again."
-                    );
-                    break;
-                default:
-                    alert(
-                        "An unexpected error occurred. Please try again later."
-                    );
-            }
+            const errorMessages = {
+                "auth/popup-closed-by-user": "The sign-in popup was closed before completing the sign-in process. Please try again.",
+                "auth/popup-blocked": "The sign-in popup was blocked by your browser. Please allow popups for this site and try again.",
+                "auth/network-request-failed": "Network error occurred during sign-in. Please check your internet connection and try again.",
+                "auth/cancelled-popup-request": "A conflicting sign-in popup request was made. Please wait and try again.",
+                "default": "An unexpected error occurred. Please try again later."
+            };
+            alert(errorMessages[error.code] || errorMessages["default"]);
         })
         .finally(
             () =>
-                (document.getElementById("loadingOverlay").style.display =
-                    "none")
+                updateUI(["loadingOverlay"], "none")
         );
 }
 
@@ -197,7 +157,7 @@ async function logHistoryToFirestore(headingData, entryData) {
         await addDoc(entriesCollectionRef, entryData);
         console.log("Log entry added successfully.");
     } catch (error) {
-        console.error("Error logging data to Firestore:", error);
+        handleError(error, "Error logging data to Firestore:");
     }
 }
 
@@ -265,7 +225,7 @@ async function startProcess() {
 
     statusElement.innerText = "Fetching data...";
     progressElement.value = 0;
-    startProcessBtn.disabled = true; // Disable the button
+    startProcessBtn.disabled = true;
 
     try {
         const sheetResponse = await fetch(
@@ -374,13 +334,11 @@ async function startProcess() {
         }
 
         statusElement.innerText = "All messages sent successfully!";
-        showNotification("All messages sent successfully.", "success");
     } catch (error) {
-        console.error("Error in process:", error);
+        handleError(error, "Error in process:");
         statusElement.innerText = "Error: " + error.message;
-        showNotification("Error: " + error.message, "error");
     } finally {
-        startProcessBtn.disabled = false; // Re-enable the button
+        startProcessBtn.disabled = false;
     }
 }
 
@@ -432,7 +390,7 @@ async function loadMessageHistory() {
 
             currentIndex += batchSize;
             if (currentIndex < logs.length) {
-                setTimeout(loadEntries, 0); // Load next batch asynchronously
+                loadEntries();
             } else {
                 document.getElementById("loadingOverlay").style.display = "none";
             }
@@ -442,7 +400,6 @@ async function loadMessageHistory() {
     } catch (error) {
         console.error("Error loading history:", error);
         historyList.innerHTML = "<li>Error loading history.</li>";
-        showNotification("Error loading history.", "error");
     }
     document.getElementById("loadingOverlay").style.display = "none";
 }
@@ -577,7 +534,6 @@ async function viewLogDetails(logId) {
             .getElementById("searchLogDetails")
             .addEventListener("input", () => filterLogDetails(detailsTable));
 
-        // Load entries incrementally
         const batchSize = 1;
         let currentIndex = 0;
 
@@ -667,7 +623,7 @@ async function viewLogDetails(logId) {
 
             currentIndex += batchSize;
             if (currentIndex < entriesSnapshot.size) {
-                loadEntries(); // Load next batch immediately
+                loadEntries();
             } else {
                 totalNumbers = entriesSnapshot.size;
 
@@ -759,120 +715,23 @@ function toggleSortIndicator(header) {
     }
 }
 
-function createPieChart(canvasId, label, data) {
-    const ctx = document.getElementById(canvasId).getContext("2d");
-    new Chart(ctx, {
-        type: "pie",
-        data: {
-            labels: data.map((d) => d.label),
-            datasets: [
-                {
-                    data: data.map((d) => d.value),
-                    backgroundColor: [
-                        "rgba(75, 192, 192, 0.2)",
-                        "rgba(54, 162, 235, 0.2)",
-                        "rgba(255, 99, 132, 0.2)",
-                    ],
-                    borderColor: [
-                        "rgba(75, 192, 192, 1)",
-                        "rgba(54, 162, 235, 1)",
-                        "rgba(255, 99, 132, 1)",
-                    ],
-                    borderWidth: 1,
-                },
-            ],
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: "top",
-                },
-                title: {
-                    display: true,
-                    text: label,
-                },
-            },
-        },
-    });
-}
-
-function toggleMenu() {
-    const sidebar = document.getElementById("sidebar");
-    sidebar.style.width = sidebar.style.width === "250px" ? "0" : "250px";
-}
-
-const cache = {
-    messageHistory: null,
-    statistics: null,
-    incomingMessages: null,
-    incomingDocuments: null,
-};
-
 function toggleView(view) {
-    const messageSenderSection = document.getElementById(
-        "messageSenderSection"
-    );
-    const messageHistorySection = document.getElementById(
-        "messageHistorySection"
-    );
-    const statisticsSection = document.getElementById("statisticsSection");
-    const incomingMessagesSection = document.getElementById(
-        "incomingMessagesSection"
-    );
-    const incomingDocumentsSection = document.getElementById(
-        "incomingDocumentsSection"
-    );
+    const sections = {
+        sender: ["messageSenderSection"],
+        history: ["messageHistorySection"],
+        incomingMessages: ["incomingMessagesSection"],
+        incomingDocuments: ["incomingDocumentsSection"]
+    };
 
-    if (view === "sender") {
-        messageSenderSection.style.display = "block";
-        messageHistorySection.style.display = "none";
-        statisticsSection.style.display = "none";
-        incomingMessagesSection.style.display = "none";
-        incomingDocumentsSection.style.display = "none";
-    } else if (view === "history") {
-        messageSenderSection.style.display = "none";
-        messageHistorySection.style.display = "block";
-        statisticsSection.style.display = "none";
-        incomingMessagesSection.style.display = "none";
-        incomingDocumentsSection.style.display = "none";
-        if (!cache.messageHistory) {
-            loadMessageHistory();
-            cache.messageHistory = true;
-        }
-    } else if (view === "statistics") {
-        messageSenderSection.style.display = "none";
-        messageHistorySection.style.display = "none";
-        statisticsSection.style.display = "block";
-        incomingMessagesSection.style.display = "none";
-        incomingDocumentsSection.style.display = "none";
-        if (!cache.statistics) {
-            loadStatistics();
-            cache.statistics = true;
-        }
-    } else if (view === "incomingMessages") {
-        messageSenderSection.style.display = "none";
-        messageHistorySection.style.display = "none";
-        statisticsSection.style.display = "none";
-        incomingMessagesSection.style.display = "block";
-        incomingDocumentsSection.style.display = "none";
-        if (!cache.incomingMessages) {
-            loadIncomingMessages();
-            cache.incomingMessages = true;
-        }
-    } else if (view === "incomingDocuments") {
-        messageSenderSection.style.display = "none";
-        messageHistorySection.style.display = "none";
-        statisticsSection.style.display = "none";
-        incomingMessagesSection.style.display = "none";
-        incomingDocumentsSection.style.display = "block";
-        if (!cache.incomingDocuments) {
-            loadIncomingDocuments();
-            cache.incomingDocuments = true;
-        }
-    }
-    toggleMenu();
-    localStorage.setItem("lastView", view);
+    Object.keys(sections).forEach(key => {
+        updateUI(sections[key], key === view ? "block" : "none");
+    });
+
+    if (view === "history") loadMessageHistory();
+    else if (view === "incomingMessages") loadIncomingMessages();
+    else if (view === "incomingDocuments") loadIncomingDocuments();
+
+    document.getElementById("sidebar").style.width = sidebar.style.width === "250px" ? "0" : "250px";
 }
 
 function filterHistory() {
@@ -904,123 +763,58 @@ function filterHistory() {
     });
 }
 
-async function loadStatistics() {
-    document.getElementById("loadingOverlay").style.display = "block";
-    const statisticsContainer = document.getElementById("statistics");
-    statisticsContainer.innerHTML = '<canvas id="statisticsChart"></canvas>';
+function filterIncomingMessages() {
+    const searchInput = document
+        .getElementById("searchIncomingMessages")
+        .value.toLowerCase();
+    const messageItems = document.querySelectorAll(
+        "#incomingMessagesList .comment-box"
+    );
 
-    try {
-        const logsRef = collection(db, "messageLogs");
-        const logsSnapshot = await getDocs(logsRef);
+    messageItems.forEach((item) => {
+        const fromText = item
+            .querySelector(".from-text span")
+            .textContent.toLowerCase();
+        const commentDate = item
+            .querySelector(".comment-date span")
+            .textContent.toLowerCase();
+        const commentText = item
+            .querySelector(".comment-text span")
+            .textContent.toLowerCase();
 
-        if (logsSnapshot.empty) {
-            statisticsContainer.innerHTML = "<p>No statistics available.</p>";
-            document.getElementById("loadingOverlay").style.display = "none";
-            return;
+        if (
+            fromText.includes(searchInput) ||
+            commentDate.includes(searchInput) ||
+            commentText.includes(searchInput)
+        ) {
+            item.style.display = "block";
+        } else {
+            item.style.display = "none";
         }
-
-        let totalMessages = 0;
-        let totalSuccess = 0;
-        let totalFailed = 0;
-        let totalReadReceipts = 0;
-        let totalDelivered = 0;
-        let totalSent = 0;
-
-        const logs = logsSnapshot.docs;
-        const batchSize = 10;
-        let currentIndex = 0;
-
-        function processEntries() {
-            const entries = logs.slice(currentIndex, currentIndex + batchSize);
-            for (const doc of entries) {
-                const entriesRef = collection(doc.ref, "entries");
-                const entriesSnapshot = getDocs(entriesRef);
-
-                totalMessages += entriesSnapshot.size;
-
-                entriesSnapshot.forEach((entryDoc) => {
-                    const entry = entryDoc.data();
-                    if (entry.status === "success") {
-                        totalSuccess += 1;
-                    } else {
-                        totalFailed += 1;
-                    }
-
-                    const logsRef = collection(entryDoc.ref, "logs");
-                    const logsSnapshot = getDocs(logsRef);
-
-                    logsSnapshot.forEach((logDoc) => {
-                        const log = logDoc.data();
-                        if (log.entry[0].changes[0].value.statuses[0].status === "read") {
-                            totalReadReceipts += 1;
-                        } else if (log.entry[0].changes[0].value.statuses[0].status === "delivered") {
-                            totalDelivered += 1;
-                        } else if (log.entry[0].changes[0].value.statuses[0].status === "sent") {
-                            totalSent += 1;
-                        }
-                    });
-                });
-            }
-
-            currentIndex += batchSize;
-            if (currentIndex < logs.length) {
-                setTimeout(processEntries, 0); // Process next batch asynchronously
-            } else {
-                const ctx = document.getElementById("statisticsChart").getContext("2d");
-                new Chart(ctx, {
-                    type: "bar",
-                    data: {
-                        labels: ["Total Messages", "Successful", "Failed", "Read Receipts", "Delivered", "Sent"],
-                        datasets: [{
-                            label: "Statistics",
-                            data: [totalMessages, totalSuccess, totalFailed, totalReadReceipts, totalDelivered, totalSent],
-                            backgroundColor: [
-                                "rgba(75, 192, 192, 0.2)",
-                                "rgba(54, 162, 235, 0.2)",
-                                "rgba(255, 99, 132, 0.2)",
-                                "rgba(153, 102, 255, 0.2)",
-                                "rgba(255, 206, 86, 0.2)",
-                                "rgba(75, 192, 192, 0.2)"
-                            ],
-                            borderColor: [
-                                "rgba(75, 192, 192, 1)",
-                                "rgba(54, 162, 235, 1)",
-                                "rgba(255, 99, 132, 1)",
-                                "rgba(153, 102, 255, 1)",
-                                "rgba(255, 206, 86, 1)",
-                                "rgba(75, 192, 192, 1)"
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-                document.getElementById("loadingOverlay").style.display = "none";
-            }
-        }
-
-        processEntries();
-    } catch (error) {
-        console.error("Error loading statistics:", error);
-        statisticsContainer.innerHTML = "<p>Error loading statistics.</p>";
-        showNotification("Error loading statistics.", "error");
-    }
-    document.getElementById("loadingOverlay").style.display = "none";
+    });
 }
 
-async function getAuthToken() {
-    const user = auth.currentUser;
-    if (user) {
-        return user.getIdToken();
-    } else {
-        throw new Error("User is not authenticated");
-    }
+function exportHistoryToCSV() {
+    const historyItems = document.querySelectorAll("#historyList .comment-box");
+    const csvRows = [];
+    const headers = ["Template", "Due Date", "Timestamp"];
+    csvRows.push(headers.join(","));
+
+    historyItems.forEach(item => {
+        const templateName = item.querySelector(".template-name span").textContent;
+        const dueDate = item.querySelector(".due-date span").textContent;
+        const timestamp = item.querySelector(".timestamp span").textContent;
+        const row = [templateName, dueDate, timestamp];
+        csvRows.push(row.join(","));
+    });
+
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.setAttribute("href", url);
+    a.setAttribute("download", "message_history.csv");
+    a.click();
 }
 
 async function addNoteToMessage(messageId, noteText, author) {
@@ -1067,7 +861,6 @@ async function loadIncomingMessages() {
     incomingMessagesList.innerHTML = "";
 
     try {
-        const authToken = await getAuthToken();
 
         const textMessagesRef = collection(db, "textMessages");
         const textMessagesSnapshot = await getDocs(textMessagesRef);
@@ -1131,7 +924,6 @@ async function loadIncomingMessages() {
     } catch (error) {
         console.error("Error loading incoming messages:", error);
         incomingMessagesList.innerHTML = "<li>Error loading incoming messages.</li>";
-        showNotification("Error loading incoming messages.", "error");
     }
     document.getElementById("loadingOverlay").style.display = "none";
 }
@@ -1182,7 +974,6 @@ async function loadIncomingDocuments() {
     incomingDocumentsList.innerHTML = "";
 
     try {
-        const authToken = await getAuthToken();
 
         const documentMessagesRef = collection(db, "documentMessages");
         const documentMessagesSnapshot = await getDocs(documentMessagesRef);
@@ -1251,11 +1042,9 @@ async function loadIncomingDocuments() {
     } catch (error) {
         console.error("Error loading incoming documents:", error);
         incomingDocumentsList.innerHTML = "<li>Error loading incoming documents.</li>";
-        showNotification("Error loading incoming documents.", "error");
     }
     document.getElementById("loadingOverlay").style.display = "none";
 }
-
 
 async function getLastMessageTimestamp() {
     const logsRef = collection(db, "messageLogs");
@@ -1265,74 +1054,6 @@ async function getLastMessageTimestamp() {
     }
     const lastLog = logsSnapshot.docs.sort((a, b) => b.data().timestamp - a.data().timestamp)[0];
     return lastLog.data().timestamp;
-}
-
-function filterIncomingMessages() {
-    const searchInput = document
-        .getElementById("searchIncomingMessages")
-        .value.toLowerCase();
-    const messageItems = document.querySelectorAll(
-        "#incomingMessagesList .comment-box"
-    );
-
-    messageItems.forEach((item) => {
-        const fromText = item
-            .querySelector(".from-text span")
-            .textContent.toLowerCase();
-        const commentDate = item
-            .querySelector(".comment-date span")
-            .textContent.toLowerCase();
-        const commentText = item
-            .querySelector(".comment-text span")
-            .textContent.toLowerCase();
-
-        if (
-            fromText.includes(searchInput) ||
-            commentDate.includes(searchInput) ||
-            commentText.includes(searchInput)
-        ) {
-            item.style.display = "block";
-        } else {
-            item.style.display = "none";
-        }
-    });
-}
-
-function toggleDarkMode() {
-    document.body.classList.toggle("dark-mode");
-    const isDarkMode = document.body.classList.contains("dark-mode");
-    localStorage.setItem("darkMode", isDarkMode);
-}
-
-// Load dark mode preference on page load
-document.addEventListener("DOMContentLoaded", () => {
-    const darkMode = localStorage.getItem("darkMode") === "true";
-    if (darkMode) {
-        document.body.classList.add("dark-mode");
-    }
-});
-
-function exportHistoryToCSV() {
-    const historyItems = document.querySelectorAll("#historyList .comment-box");
-    const csvRows = [];
-    const headers = ["Template", "Due Date", "Timestamp"];
-    csvRows.push(headers.join(","));
-
-    historyItems.forEach(item => {
-        const templateName = item.querySelector(".template-name span").textContent;
-        const dueDate = item.querySelector(".due-date span").textContent;
-        const timestamp = item.querySelector(".timestamp span").textContent;
-        const row = [templateName, dueDate, timestamp];
-        csvRows.push(row.join(","));
-    });
-
-    const csvContent = csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.setAttribute("href", url);
-    a.setAttribute("download", "message_history.csv");
-    a.click();
 }
 
 document
@@ -1348,19 +1069,14 @@ document
     .getElementById("history_veiwer_ui_btn")
     .addEventListener("click", () => toggleView("history"));
 document
-    .getElementById("statistics_ui_btn")
-    .addEventListener("click", () => toggleView("statistics"));
-document
     .getElementById("incoming_messages_ui_btn")
     .addEventListener("click", () => {
         toggleView("incomingMessages");
-        // loadIncomingMessages();
     });
 document
     .getElementById("incoming_documents_ui_btn")
     .addEventListener("click", () => {
         toggleView("incomingDocuments");
-        // loadIncomingDocuments();
     });
 document
     .querySelector(".user-circle")
@@ -1369,7 +1085,7 @@ document
         () => (document.getElementById("userModal").style.display = "block")
     );
 document.getElementById("signInButton").addEventListener("click", signIn);
-document.getElementById("menu_btn").addEventListener("click", toggleMenu);
+document.getElementById("menu_btn").addEventListener("click", document.getElementById("sidebar").style.width = sidebar.style.width === "250px" ? "0" : "250px");
 document
     .getElementById("closeModal")
     .addEventListener(
@@ -1382,7 +1098,6 @@ document
 document
     .getElementById("searchIncomingMessages")
     .addEventListener("input", filterIncomingMessages);
-document.getElementById("darkModeToggle").addEventListener("click", toggleDarkMode);
 document.getElementById("exportToCSVBtn").addEventListener("click", exportHistoryToCSV);
 
 populateMessageTemplates();
