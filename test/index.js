@@ -19,10 +19,6 @@ const firebaseConfig = {
 
 admin.initializeApp(firebaseConfig);
 
-// admin.initializeApp({
-//     credential: admin.credential.cert(serviceAccount)
-// });
-
 const storage = new Storage();
 const drive = google.drive("v3");
 const db = admin.firestore();
