@@ -1,4 +1,7 @@
 body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
     color: #333;
@@ -443,7 +446,8 @@ select:focus {
 }
 
 .main-content {
-    margin-top: 70px;
+    flex: 1;
+    margin-top: 50px;
     padding: 20px;
     transition: margin-left 0.5s;
 }
@@ -599,6 +603,7 @@ select:focus {
 }
 
 .main-content {
+    flex: 1;
     margin-top: 50px;
     padding: 20px;
     transition: margin-left 0.5s;
@@ -889,4 +894,15 @@ select:focus {
 .add-note-btn:hover {
     background-color: #45a049;
     transform: translateY(-2px);
+}
+
+.footer {
+    background-color: #333;
+    color: white;
+    text-align: center;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    margin-top: auto;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
 }

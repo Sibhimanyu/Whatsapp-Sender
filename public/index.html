@@ -95,8 +95,8 @@
                 <h2>Incoming Documents</h2>
             </div>
             <div class="search-container">
-                <input type="text" id="searchIncomingMessages" class="input-field"
-                    placeholder="Search incoming messages..." />
+                <input type="text" id="searchIncomingDocuments" class="input-field"
+                    placeholder="Search incoming documents..." />
             </div>
             <ul id="incomingDocumentsList" class="incoming-messages-list"></ul>
         </div>
@@ -136,8 +136,34 @@
                 </div>
             </div>
         </div>
-    </div>
 
+        <!-- Reply or Note Modal -->
+        <div id="replyOrNoteModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Choose an Action</h2>
+                    <span id="closeReplyOrNoteModal" style="cursor: pointer; font-size: 20px">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <button id="replyButton" class="primary-btn">Reply</button>
+                    <button id="noteButton" class="primary-btn">Add Note</button>
+                    <button id="cancelButton" class="secondary-btn">Cancel</button>
+                    <div id="replySection" style="display: none;">
+                        <textarea id="replyText" placeholder="Enter your reply..." class="input-field"></textarea>
+                        <button id="sendReplyButton" class="primary-btn">Send Reply</button>
+                    </div>
+                    <div id="noteSection" style="display: none;">
+                        <textarea id="noteText" placeholder="Enter your note..." class="input-field"></textarea>
+                        <button id="saveNoteButton" class="primary-btn">Save Note</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <p>&copy; 2025 Sibhi. All rights reserved.</p>
+        <p>Contact: <a>sibhi@aurobindovidhyalaya.edu.in</a></p>
+    </footer>
     <script src="main.js" type="module" defer></script>
 </body>
 

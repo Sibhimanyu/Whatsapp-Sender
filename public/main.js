@@ -282,7 +282,8 @@ async function startProcess() {
                     if (
                         messageTemplate !== "hostel_fees_due_tamil" &&
                         messageTemplate !== "total_due_fess_tamil" &&
-                        messageTemplate !== "board_exam_due_fees_tamil"
+                        messageTemplate !== "board_exam_due_fees_tamil" &&
+                        messageTemplate !== "total_due_fess_tamil"
                     ) {
                         requestData.term = term;
                     }
@@ -731,7 +732,7 @@ function toggleView(view) {
     else if (view === "incomingMessages") loadIncomingMessages();
     else if (view === "incomingDocuments") loadIncomingDocuments();
 
-    document.getElementById("sidebar").style.width = sidebar.style.width === "250px" ? "0" : "250px";
+    toggleSidebar();
 }
 
 function filterHistory() {
@@ -855,13 +856,78 @@ async function loadNotesForMessage(messageId, notesContainer) {
     }
 }
 
+function showReplyOrNoteDialog(messageId, notesContainer, from, msgId) {
+    const modal = document.getElementById("replyOrNoteModal");
+    modal.style.display = "block";
+
+    const replySection = document.getElementById("replySection");
+    const noteSection = document.getElementById("noteSection");
+
+    document.getElementById("replyButton").addEventListener("click", () => {
+        replySection.style.display = "block";
+        noteSection.style.display = "none";
+    });
+
+    document.getElementById("noteButton").addEventListener("click", () => {
+        noteSection.style.display = "block";
+        replySection.style.display = "none";
+    });
+
+    document.getElementById("sendReplyButton").addEventListener("click", async () => {
+        const replyText = document.getElementById("replyText").value.trim();
+        if (replyText) {
+            await sendFacebookMessage(messageId, userEmail, from, replyText, true, msgId);
+        }
+        modal.style.display = "none";
+    });
+
+    document.getElementById("saveNoteButton").addEventListener("click", async () => {
+        const noteText = document.getElementById("noteText").value.trim();
+        if (noteText) {
+            await addNoteToMessage(messageId, noteText, userEmail);
+            loadNotesForMessage(messageId, notesContainer);
+        }
+        modal.style.display = "none";
+    });
+
+    document.getElementById("cancelButton").addEventListener("click", () => {
+        modal.style.display = "none";
+    });
+
+    document.getElementById("closeReplyOrNoteModal").addEventListener("click", () => {
+        modal.style.display = "none";
+    });
+}
+
+async function loadRepliesForMessage(messageId, repliesContainer) {
+    try {
+        const messageRef = doc(db, "textMessages", messageId);
+        const repliesCollectionRef = collection(messageRef, "replies");
+        const repliesSnapshot = await getDocs(repliesCollectionRef);
+
+        repliesContainer.innerHTML = "";
+        repliesSnapshot.forEach((replyDoc) => {
+            const replyData = replyDoc.data();
+            const replyElement = document.createElement("div");
+            replyElement.className = "reply-container";
+            replyElement.innerHTML = `
+                <h4>Reply by ${replyData.author}:</h4>
+                <p>${replyData.message}</p>
+                <p><small>${new Date(replyData.timestamp).toLocaleString()}</small></p>
+            `;
+            repliesContainer.appendChild(replyElement);
+        });
+    } catch (error) {
+        console.error("Error loading replies:", error);
+    }
+}
+
 async function loadIncomingMessages() {
     document.getElementById("loadingOverlay").style.display = "block";
     const incomingMessagesList = document.getElementById("incomingMessagesList");
     incomingMessagesList.innerHTML = "";
 
     try {
-
         const textMessagesRef = collection(db, "textMessages");
         const textMessagesSnapshot = await getDocs(textMessagesRef);
 
@@ -880,10 +946,10 @@ async function loadIncomingMessages() {
 
         document.getElementById("loadingOverlay").style.display = "none";
 
-        const batchSize = 1;
+        const batchSize = 10;
         let currentIndex = 0;
 
-        function loadEntries() {
+        async function loadEntries() {
             const entries = messages.slice(currentIndex, currentIndex + batchSize);
             for (const doc of entries) {
                 const data = doc.data();
@@ -899,16 +965,15 @@ async function loadIncomingMessages() {
                     <p class="comment-date">Date: <span>${new Date(messageTimestamp).toLocaleString()}</span></p>
                     <p class="comment-text">Message: <span>${data.text}</span></p>
                     <div class="notes-container"></div>
+                    <div class="replies-container"></div>
                 `;
                 const notesContainer = messageBox.querySelector(".notes-container");
-                loadNotesForMessage(doc.id, notesContainer);
+                const repliesContainer = messageBox.querySelector(".replies-container");
+                await loadNotesForMessage(doc.id, notesContainer);
+                await loadRepliesForMessage(doc.id, repliesContainer);
 
                 messageBox.addEventListener("click", async () => {
-                    const noteText = prompt("Enter your note:");
-                    if (noteText) {
-                        await addNoteToMessage(doc.id, noteText, userEmail);
-                        loadNotesForMessage(doc.id, notesContainer);
-                    }
+                    showReplyOrNoteDialog(doc.id, notesContainer, data.from, data.messageId);
                 });
 
                 incomingMessagesList.appendChild(messageBox);
@@ -1056,6 +1121,25 @@ async function getLastMessageTimestamp() {
     return lastLog.data().timestamp;
 }
 
+async function sendFacebookMessage(messageId, userEmail, phoneNumber, message, isReply, previousMsgId) {
+    try {
+        const result = await fetch(
+            "https://us-central1-whatsapp-sender-5f564.cloudfunctions.net/sendFacebookMessage",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messageId: messageId, author: userEmail, phoneNumber: phoneNumber, message: message, isReply: isReply, previousMsgId: previousMsgId }),
+            }
+        );
+    } catch (error) {
+        console.error('Error sending message:', error);
+    }
+}
+
+function toggleSidebar() {
+    document.getElementById("sidebar").style.width = sidebar.style.width === "250px" ? "0" : "250px";
+}
+
 document
     .getElementById("startProcessBtn")
     .addEventListener("click", startProcess);
@@ -1085,7 +1169,7 @@ document
         () => (document.getElementById("userModal").style.display = "block")
     );
 document.getElementById("signInButton").addEventListener("click", signIn);
-document.getElementById("menu_btn").addEventListener("click", document.getElementById("sidebar").style.width = sidebar.style.width === "250px" ? "0" : "250px");
+document.getElementById("menu_btn").addEventListener("click", toggleSidebar);
 document
     .getElementById("closeModal")
     .addEventListener(

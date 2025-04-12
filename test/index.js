@@ -11,7 +11,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyAspuXUOSXqDwRHrkow-wyE2HD0UGg79q0",
     authDomain: "whatsapp-sender-5f564.firebaseapp.com",
     projectId: "whatsapp-sender-5f564",
-    storageBucket: "whatsapp-sender-5f564.firebasestorage.app",
+    storageBucket: "whatsapp-sender-5f564",
     messagingSenderId: "648718768183",
     appId: "1:648718768183:web:d6a648b579ca8dab8c07b2",
     measurementId: "G-G4J5VN9GVF",
@@ -114,7 +114,8 @@ exports.sendWhatsappMessageHttp = functions.https.onRequest((req, res) => {
         if (
             messageTemplate !== "hostel_fees_due_tamil" &&
             messageTemplate !== "total_due_fees_tamil" &&
-            messageTemplate !== "board_exam_due_fees_tamil"
+            messageTemplate !== "board_exam_due_fees_tamil" &&
+            messageTemplate !== "total_due_fess_tamil"
         ) {
             parameters.splice(1, 0, { type: "text", text: term });
         }
@@ -152,6 +153,67 @@ exports.sendWhatsappMessageHttp = functions.https.onRequest((req, res) => {
         } catch (error) {
             console.error("Error sending message:", error.message);
             res.status(500).send({ error: error.message });
+        }
+    });
+});
+
+// Send Facebook message
+exports.sendFacebookMessage = functions.https.onRequest(async (req, res) => {
+    cors(req, res, async () => {
+        const { messageId, author, phoneNumber, message, isReply, previousMsgId } = req.body;
+        sendMessageToGoogleChat(`Sending message to ${phoneNumber}: ${message} with msgid: ${previousMsgId}`);
+        const url = `https://graph.facebook.com/v20.0/159339593939407/messages`;
+        const ACCESS_TOKEN = 'EAAMslFZBsCKoBOyBhd718hUNP0qQeCBEeZAsh0EQYdLq7w5lr4QNmnEZBf5X2QfMzhpuTaaZB0ObS2ZAQWmiunuIa7GIq1vKYM972t7DZCbgZAlf3OLycpBxggOhth4V35Ft3y4Kea1RUAJiaecgTzHZB1ejIZAdWB140mmv4bVlGbojcWGOXRIvdKl7lsaTGIaWIXUkZB5ZBLnefp2g70O';
+
+        let payload = {
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: phoneNumber,
+            type: "text",
+            text: {
+                body: message
+            }
+        };
+
+        try {
+            const response = await axios.post(url, payload, {
+                headers: {
+                    Authorization: `Bearer ${ACCESS_TOKEN}`,
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.status === 200) {
+                const responseData = response.data;
+                console.log('Message sent successfully!', responseData);
+
+                // Save the message to Firestore
+                const messageData = {
+                    phoneNumber,
+                    message,
+                    isReply,
+                    author,
+                    timestamp: new Date().toISOString(),
+                    wamId: responseData.messages[0].id
+                };
+
+                if (isReply && previousMsgId) {
+                    // Save the reply under the incoming message
+                    const incomingMessageRef = db.collection("textMessages").doc(messageId);
+                    const repliesCollectionRef = incomingMessageRef.collection("replies");
+                    await repliesCollectionRef.add(messageData);
+                } else {
+                    await db.collection("facebookMessages").add(messageData);
+                }
+
+                res.status(200).send({ wamId: responseData.messages[0].id });
+            } else {
+                console.error('Failed to send message:', response.data);
+                res.status(500).send({ error: 'Failed to send message' });
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            res.status(500).send({ error: 'Error sending message' });
         }
     });
 });
@@ -369,11 +431,14 @@ async function handleWebhookEvent(req, res) {
 }
 
 // Cloud Function to move entries from temporary collection to the appropriate collection
-exports.moveTemporaryEntries = functions.pubsub
-    .schedule("every 30 minutes")
-    .onRun(async (context) => {
+exports.moveTemporaryEntries = functions.https.onRequest(async (req, res) => {
+    try {
         const tempCollectionRef = db.collection("temporaryWebhookResponses");
         const tempSnapshot = await tempCollectionRef.get();
+
+        if (tempSnapshot.empty) {
+            return res.status(200).send({ message: "No temporary entries found." });
+        }
 
         tempSnapshot.forEach(async (doc) => {
             const payload = doc.data().payload;
@@ -395,9 +460,16 @@ exports.moveTemporaryEntries = functions.pubsub
 
                 // Delete the entry from the temporary collection
                 await doc.ref.delete();
+                sendMessageToGoogleChat("Moved temporary entries to the logs");
             }
         });
-    });
+
+        res.status(200).send({ message: "Temporary entries moved successfully." });
+    } catch (error) {
+        console.error("Error moving temporary entries:", error.message);
+        res.status(500).send({ error: `An error occurred: ${error.message}` });
+    }
+});
 
 // Fetch data from Google Sheets
 const sheets = google.sheets("v4");
@@ -502,7 +574,7 @@ async function fetchAndDownloadMedia(mediaId) {
 }
 
 function formatMessage(type, senderName, message, timeString, mediaUrl = "") {
-    const replyLink = `<https://script.google.com/a/macros/aurobindovidhyalaya.edu.in/s/AKfycby7-S-z7g8629rjIomUABpTVP3n7PvDrjUSzuwkR3y0bkUcaQSn1fath138MdwUynBM/exec?phoneNumber=${message.from}&wamID=${message.id}|Reply here>`;
+    const replyLink = `<https://whatsapp-sender-5f564.web.app|Reply here>`;
 
     switch (type) {
         case "reaction":
