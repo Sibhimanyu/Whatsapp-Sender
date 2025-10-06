@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { firebaseConfig, allowedEmails } from './config.js';
 import {
     getFunctions,
     httpsCallable,
@@ -20,16 +21,6 @@ import {
     getDoc,
 } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAspuXUOSXqDwRHrkow-wyE2HD0UGg79q0",
-    authDomain: "whatsapp-sender-5f564.firebaseapp.com",
-    projectId: "whatsapp-sender-5f564",
-    storageBucket: "whatsapp-sender-5f564.firebasestorage.app",
-    messagingSenderId: "648718768183",
-    appId: "1:648718768183:web:d6a648b579ca8dab8c07b2",
-    measurementId: "G-G4J5VN9GVF",
-};
-
 const app = initializeApp(firebaseConfig);
 const functions = getFunctions(app);
 const db = getFirestore(app);
@@ -40,7 +31,8 @@ let userEmail = "";
 
 function updateUI(elements, displayStyle) {
     elements.forEach(element => {
-        document.getElementById(element).style.display = displayStyle;
+        const el = document.getElementById(element);
+        if (el) el.style.display = displayStyle;
     });
 }
 
@@ -50,8 +42,10 @@ function handleError(error, message) {
 }
 
 onAuthStateChanged(auth, async (user) => {
-    if (user) {
+    if (user && allowedEmails.includes(user.email?.toLowerCase())) {
         updateUI(["messageSenderSection"], "block");
+        updateUI(["signedOut"], "none");
+        document.getElementById("menu_btn").disabled = false;
         userEmail = user.email;
         const userName = user.displayName || "No name available";
         const userPhotoURL = user.photoURL;
@@ -78,7 +72,7 @@ onAuthStateChanged(auth, async (user) => {
             .addEventListener("click", () => {
                 updateUI(["messageSenderSection"], "none");
                 updateUI(["signedOut"], "block");
-                document.getElementById("menuBtn").disabled = true;
+                document.getElementById("menu_btn").disabled = true;
                 ["modalUserEmail", "modalUserName", "modalProviderId", "userEmail"].forEach(id => document.getElementById(id).textContent = "");
                 signOut(auth)
                     .then(() => {
@@ -89,9 +83,14 @@ onAuthStateChanged(auth, async (user) => {
                     });
             });
     } else {
-        updateUI(["messageSenderSection"], "none");
+        // Not allowed, sign out and hide everything
+        updateUI(["messageSenderSection", "commentsByStudents", "messageHistorySection", "incomingMessagesSection", "incomingDocumentsSection"], "none");
         updateUI(["signedOut"], "block");
-        document.getElementById("menuBtn").disabled = true;
+        alert("Access denied. Only users with allowed email addresses can sign in.");
+        userEmail = "";
+        document.getElementById("menu_btn").disabled = true;
+        ["modalUserEmail", "modalUserName", "modalProviderId", "userEmail"].forEach(id => document.getElementById(id).textContent = "");
+        if (user) await signOut(auth);
     }
 });
 
@@ -100,24 +99,14 @@ function signIn() {
     signInWithPopup(auth, provider)
         .then(async (result) => {
             const user = result.user;
-            const allowedEmails = [
-                "sibhi@aurobindovidhyalaya.edu.in",
-                "anupriyab@aurobindovidhyalaya.edu.in",
-                "sudhad@aurobindovidhyalaya.edu.in",
-                "gv@aurobindovidhyalaya.edu.in"
-            ];
-
-            if (allowedEmails.includes(user.email)) {
+            if (allowedEmails.includes(user.email?.toLowerCase())) {
                 updateUI(["signedOut"], "none");
                 updateUI(["messageSenderSection", "commentsByStudents"], "block");
-                document.getElementById("menuBtn").disabled = false;
+                document.getElementById("menu_btn").disabled = false;
             } else {
                 updateUI(["messageSenderSection"], "none");
                 ["modalUserEmail", "modalUserName", "modalProviderId", "userEmail"].forEach(id => document.getElementById(id).textContent = "");
                 await signOut(auth);
-                alert(
-                    "Access denied. Only users with allowed email addresses can sign in."
-                );
             }
         })
         .catch((error) => {

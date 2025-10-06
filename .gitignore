@@ -68,3 +68,11 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 functions/whatsapp.json
+
+# Sensitive configuration files
+test/config.js
+test/whatsapp.json
+
+# Configuration files
+public/config.js
+public/config.*.js

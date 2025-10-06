@@ -5,27 +5,18 @@ const { google } = require("googleapis");
 const { Storage } = require("@google-cloud/storage");
 const cors = require("cors")({ origin: true });
 const { Readable } = require("stream");
-const serviceAccount = require("./whatsapp.json"); // Import the whatsapp.json file
-
-const firebaseConfig = {
-    apiKey: "AIzaSyAspuXUOSXqDwRHrkow-wyE2HD0UGg79q0",
-    authDomain: "whatsapp-sender-5f564.firebaseapp.com",
-    projectId: "whatsapp-sender-5f564",
-    storageBucket: "whatsapp-sender-5f564",
-    messagingSenderId: "648718768183",
-    appId: "1:648718768183:web:d6a648b579ca8dab8c07b2",
-    measurementId: "G-G4J5VN9GVF",
-};
+const serviceAccount = require("./whatsapp.json");
+const { firebaseConfig, whatsappConfig } = require("./config");
 
 admin.initializeApp(firebaseConfig);
 
 const storage = new Storage();
 const drive = google.drive("v3");
 const db = admin.firestore();
-const VERIFY_TOKEN = serviceAccount.verify_token; // Use the token from whatsapp.json
-const ACCESS_TOKEN = serviceAccount.access_token; // Use the access token from whatsapp.json
-const spreadsheetId = serviceAccount.spreadsheet_id; // Use the spreadsheet ID from whatsapp.json
-const folderId = serviceAccount.folder_id; // Use the folder ID from whatsapp.json
+const VERIFY_TOKEN = whatsappConfig.VERIFY_TOKEN;
+const ACCESS_TOKEN = whatsappConfig.ACCESS_TOKEN;
+const spreadsheetId = whatsappConfig.SPREADSHEET_ID;
+const folderId = whatsappConfig.FOLDER_ID;
 
 // Fetch data from Google Sheets
 exports.fetchGoogleSheetData = functions.https.onRequest((req, res) => {
